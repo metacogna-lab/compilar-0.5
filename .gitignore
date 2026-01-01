@@ -1,6 +1,7 @@
 # ENV
 *.env
 .env.production
+setup-env.js
 
 docs/
 supabase/
