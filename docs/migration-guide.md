@@ -543,16 +543,26 @@ MIGRATION_STATUS.entities.UserProfile = 'base44';
 
 1. **Kickoff Meeting**: Align team on migration approach and timeline
 2. **Environment Setup**: Prepare staging environment for testing
-3. **API Documentation**: Begin comprehensive API contract documentation
+3. **Phase 1 Start**: Begin AI functions implementation and API stabilization
 4. **Team Training**: Ensure all developers understand migration process
-5. **Phase 1 Start**: Begin API endpoint inventory and documentation
+5. **Documentation Review**: Familiarize team with comprehensive migration documentation
 
 ---
 
-## Appendices
+## Documentation Index
 
+### Core Migration Documentation
+- **[Migration Summary](./migration-summary.md)**: Executive overview and complete roadmap
+- **[Current API Inventory](./current-api-inventory.md)**: Comprehensive analysis of existing endpoints and Base44 usage
+- **[Implementation Plan](./migration-implementation-plan.md)**: Detailed 12-week phased approach with specific deliverables
+
+### Technical Specifications
+- **[API Contract Specifications](./api-contract-specifications.md)**: Detailed request/response schemas, validation rules, and error handling
+- **[Testing Strategy](./migration-testing-strategy.md)**: Comprehensive testing framework with contract, data integrity, and performance testing
+
+### Legacy Documentation (Updated)
 - [API Contracts Documentation](./api-contracts.md)
 - [Entity Migration Guide](./entity-migration-guide.md)
 - [Testing Strategy](./testing-guide.md)
 - [Security Review](./security-review.md)
-- [Performance Benchmarks](./performance-benchmarks.md)
+- [Database Migration Guide](./database-migration-guide.md)
