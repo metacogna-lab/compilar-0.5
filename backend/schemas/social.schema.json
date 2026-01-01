@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Compilar Social Database Schema",
+  "description": "Teams, study groups, and collaborative features",
+  "version": "1.0.0",
+
+  "tables": {
+    "teams": {
+      "description": "Team management and collaboration spaces",
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "default": "uuid_generate_v4()",
+          "primary_key": true
+        },
+        "team_name": {
+          "type": "text",
+          "not_null": true,
+          "description": "Team display name"
+        },
+        "description": {
+          "type": "text",
+          "description": "Team description"
+        },
+        "owner_email": {
+          "type": "text",
+          "not_null": true,
+          "description": "Owner's email (for reference)"
+        },
+        "owner_id": {
+          "type": "uuid",
+          "references": "auth.users(id)",
+          "on_delete": "SET NULL",
+          "description": "Team owner"
+        },
+        "aggregated_scores": {
+          "type": "jsonb",
+          "default": "{}",
+          "description": "Team-wide assessment scores"
+        },
+        "settings": {
+          "type": "jsonb",
+          "default": "{}",
+          "description": "Team configuration settings"
+        },
+        "created_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        },
+        "updated_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        }
+      },
+      "indexes": ["owner_id"],
+      "triggers": ["updated_at"],
+      "rls_policies": [
+        "Team members can view their teams",
+        "Authenticated users can create teams",
+        "Team owners can update their teams"
+      ]
+    },
+
+    "team_members": {
+      "description": "Team membership and roles",
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "default": "uuid_generate_v4()",
+          "primary_key": true
+        },
+        "team_id": {
+          "type": "uuid",
+          "references": "teams(id)",
+          "not_null": true,
+          "on_delete": "CASCADE"
+        },
+        "user_id": {
+          "type": "uuid",
+          "references": "auth.users(id)",
+          "not_null": true,
+          "on_delete": "CASCADE"
+        },
+        "role": {
+          "type": "text",
+          "default": "'member'",
+          "not_null": true,
+          "enum": ["owner", "admin", "member"],
+          "description": "Member role in team"
+        },
+        "joined_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        }
+      },
+      "indexes": ["team_id", "user_id"],
+      "constraints": ["UNIQUE(team_id, user_id)"],
+      "rls_policies": [
+        "Team members can view membership",
+        "Team owners can manage members"
+      ]
+    },
+
+    "team_invitations": {
+      "description": "Team invitation and access management",
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "default": "uuid_generate_v4()",
+          "primary_key": true
+        },
+        "team_id": {
+          "type": "uuid",
+          "references": "teams(id)",
+          "not_null": true,
+          "on_delete": "CASCADE"
+        },
+        "invited_email": {
+          "type": "text",
+          "not_null": true,
+          "description": "Email of invited user"
+        },
+        "invited_by": {
+          "type": "uuid",
+          "references": "auth.users(id)",
+          "on_delete": "SET NULL",
+          "description": "User who sent invitation"
+        },
+        "status": {
+          "type": "text",
+          "default": "'pending'",
+          "not_null": true,
+          "enum": ["pending", "accepted", "declined", "expired"],
+          "description": "Invitation status"
+        },
+        "expires_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW() + INTERVAL '7 days'",
+          "not_null": true
+        },
+        "created_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        }
+      },
+      "indexes": ["team_id", "invited_email", "status"],
+      "rls_policies": [
+        "Team members can view invitations",
+        "Team owners can manage invitations"
+      ]
+    },
+
+    "study_groups": {
+      "description": "Study groups for collaborative learning",
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "default": "uuid_generate_v4()",
+          "primary_key": true
+        },
+        "name": {
+          "type": "text",
+          "not_null": true,
+          "description": "Study group name"
+        },
+        "description": {
+          "type": "text",
+          "description": "Study group description"
+        },
+        "owner_id": {
+          "type": "uuid",
+          "references": "auth.users(id)",
+          "not_null": true,
+          "on_delete": "CASCADE"
+        },
+        "max_members": {
+          "type": "integer",
+          "default": 10,
+          "description": "Maximum group size"
+        },
+        "is_private": {
+          "type": "boolean",
+          "default": false,
+          "not_null": true,
+          "description": "Privacy setting"
+        },
+        "settings": {
+          "type": "jsonb",
+          "default": "{}",
+          "description": "Group configuration"
+        },
+        "created_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        },
+        "updated_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        }
+      },
+      "indexes": ["owner_id", "is_private"],
+      "triggers": ["updated_at"],
+      "rls_policies": [
+        "Study group members can view their groups",
+        "Authenticated users can create study groups",
+        "Study group owners can update their groups"
+      ]
+    },
+
+    "study_group_members": {
+      "description": "Study group membership tracking",
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "default": "uuid_generate_v4()",
+          "primary_key": true
+        },
+        "study_group_id": {
+          "type": "uuid",
+          "references": "study_groups(id)",
+          "not_null": true,
+          "on_delete": "CASCADE"
+        },
+        "user_id": {
+          "type": "uuid",
+          "references": "auth.users(id)",
+          "not_null": true,
+          "on_delete": "CASCADE"
+        },
+        "role": {
+          "type": "text",
+          "default": "'member'",
+          "not_null": true,
+          "enum": ["owner", "moderator", "member"],
+          "description": "Member role"
+        },
+        "joined_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        }
+      },
+      "indexes": ["study_group_id", "user_id"],
+      "constraints": ["UNIQUE(study_group_id, user_id)"],
+      "rls_policies": [
+        "Study group members can view membership",
+        "Study group owners can manage members"
+      ]
+    }
+  }
+}

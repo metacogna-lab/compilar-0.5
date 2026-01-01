@@ -1,0 +1,273 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Compilar Gamification Database Schema",
+  "description": "Badges, trophies, points, and achievement system",
+  "version": "1.0.0",
+
+  "tables": {
+    "user_gamification": {
+      "description": "User gamification progress and statistics",
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "default": "uuid_generate_v4()",
+          "primary_key": true
+        },
+        "user_id": {
+          "type": "uuid",
+          "references": "auth.users(id)",
+          "not_null": true,
+          "on_delete": "CASCADE"
+        },
+        "total_points": {
+          "type": "integer",
+          "default": 0,
+          "not_null": true,
+          "description": "Total accumulated points"
+        },
+        "current_streak": {
+          "type": "integer",
+          "default": 0,
+          "not_null": true,
+          "description": "Current activity streak"
+        },
+        "longest_streak": {
+          "type": "integer",
+          "default": 0,
+          "not_null": true,
+          "description": "Longest activity streak"
+        },
+        "badges_earned": {
+          "type": "integer",
+          "default": 0,
+          "not_null": true,
+          "description": "Number of badges earned"
+        },
+        "trophies_earned": {
+          "type": "integer",
+          "default": 0,
+          "not_null": true,
+          "description": "Number of trophies earned"
+        },
+        "level": {
+          "type": "integer",
+          "default": 1,
+          "not_null": true,
+          "description": "User level"
+        },
+        "experience_points": {
+          "type": "integer",
+          "default": 0,
+          "not_null": true,
+          "description": "Experience points for leveling"
+        },
+        "achievements": {
+          "type": "jsonb",
+          "default": "[]",
+          "not_null": true,
+          "description": "Achievement progress data"
+        },
+        "created_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        },
+        "updated_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        }
+      },
+      "indexes": ["user_id"],
+      "constraints": ["UNIQUE(user_id)"],
+      "triggers": ["updated_at"],
+      "rls_policies": [
+        "Users can view their own gamification",
+        "Users can update their own gamification"
+      ]
+    },
+
+    "badges": {
+      "description": "Achievement badges and their requirements",
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "default": "uuid_generate_v4()",
+          "primary_key": true
+        },
+        "name": {
+          "type": "text",
+          "not_null": true,
+          "description": "Badge display name"
+        },
+        "description": {
+          "type": "text",
+          "not_null": true,
+          "description": "Badge description"
+        },
+        "icon": {
+          "type": "text",
+          "description": "Badge icon identifier"
+        },
+        "category": {
+          "type": "text",
+          "not_null": true,
+          "description": "Badge category (assessment, learning, social, etc.)"
+        },
+        "rarity": {
+          "type": "text",
+          "default": "'common'",
+          "not_null": true,
+          "enum": ["common", "rare", "epic", "legendary"],
+          "description": "Badge rarity level"
+        },
+        "requirements": {
+          "type": "jsonb",
+          "default": "{}",
+          "not_null": true,
+          "description": "Achievement requirements"
+        },
+        "points_value": {
+          "type": "integer",
+          "default": 0,
+          "description": "Points awarded for earning badge"
+        },
+        "is_active": {
+          "type": "boolean",
+          "default": true,
+          "not_null": true,
+          "description": "Whether badge is currently available"
+        },
+        "created_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        }
+      },
+      "indexes": ["category", "rarity", "is_active"],
+      "rls_policies": ["Anyone can view badges"]
+    },
+
+    "user_badges": {
+      "description": "User badge achievements and progress",
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "default": "uuid_generate_v4()",
+          "primary_key": true
+        },
+        "user_id": {
+          "type": "uuid",
+          "references": "auth.users(id)",
+          "not_null": true,
+          "on_delete": "CASCADE"
+        },
+        "badge_id": {
+          "type": "uuid",
+          "references": "badges(id)",
+          "not_null": true,
+          "on_delete": "CASCADE"
+        },
+        "earned_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        }
+      },
+      "indexes": ["user_id", "badge_id"],
+      "constraints": ["UNIQUE(user_id, badge_id)"],
+      "rls_policies": [
+        "Users can view their own badges",
+        "System can create user badges"
+      ]
+    },
+
+    "trophies": {
+      "description": "Major achievements and trophies",
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "default": "uuid_generate_v4()",
+          "primary_key": true
+        },
+        "name": {
+          "type": "text",
+          "not_null": true,
+          "description": "Trophy display name"
+        },
+        "description": {
+          "type": "text",
+          "not_null": true,
+          "description": "Trophy description"
+        },
+        "icon": {
+          "type": "text",
+          "description": "Trophy icon identifier"
+        },
+        "category": {
+          "type": "text",
+          "not_null": true,
+          "description": "Trophy category"
+        },
+        "requirements": {
+          "type": "jsonb",
+          "default": "{}",
+          "not_null": true,
+          "description": "Achievement requirements"
+        },
+        "points_value": {
+          "type": "integer",
+          "default": 0,
+          "description": "Points awarded for earning trophy"
+        },
+        "is_active": {
+          "type": "boolean",
+          "default": true,
+          "not_null": true,
+          "description": "Whether trophy is currently available"
+        },
+        "created_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        }
+      },
+      "indexes": ["category", "is_active"],
+      "rls_policies": ["Anyone can view trophies"]
+    },
+
+    "user_trophies": {
+      "description": "User trophy achievements",
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "default": "uuid_generate_v4()",
+          "primary_key": true
+        },
+        "user_id": {
+          "type": "uuid",
+          "references": "auth.users(id)",
+          "not_null": true,
+          "on_delete": "CASCADE"
+        },
+        "trophy_id": {
+          "type": "uuid",
+          "references": "trophies(id)",
+          "not_null": true,
+          "on_delete": "CASCADE"
+        },
+        "earned_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        }
+      },
+      "indexes": ["user_id", "trophy_id"],
+      "constraints": ["UNIQUE(user_id, trophy_id)"],
+      "rls_policies": [
+        "Users can view their own trophies",
+        "System can create user trophies"
+      ]
+    }
+  }
+}

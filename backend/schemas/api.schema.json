@@ -1,0 +1,280 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Compilar API Schema",
+  "description": "REST API endpoints and data structures",
+  "version": "1.0.0",
+  "base_url": "/api/v1",
+
+  "endpoints": {
+    "health": {
+      "path": "/health",
+      "method": "GET",
+      "description": "Health check endpoint",
+      "response": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "ok" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+
+    "auth_me": {
+      "path": "/auth/me",
+      "method": "GET",
+      "description": "Get current authenticated user",
+      "headers": {
+        "Authorization": "Bearer <token>"
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "email": { "type": "string", "format": "email" },
+              "user_metadata": { "type": "object" }
+            }
+          }
+        }
+      }
+    },
+
+    "assessments_list": {
+      "path": "/assessments",
+      "method": "GET",
+      "description": "List user's assessments",
+      "headers": {
+        "Authorization": "Bearer <token>"
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "assessments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "user_id": { "type": "string", "format": "uuid" },
+                "pillar_id": { "type": "string" },
+                "mode": { "type": "string", "enum": ["egalitarian", "hierarchical"] },
+                "scores": { "type": "object" },
+                "forces_data": { "type": "object" },
+                "created_at": { "type": "string", "format": "date-time" },
+                "updated_at": { "type": "string", "format": "date-time" }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "assessments_create": {
+      "path": "/assessments",
+      "method": "POST",
+      "description": "Create new assessment",
+      "headers": {
+        "Authorization": "Bearer <token>",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "type": "object",
+        "required": ["pillar_id", "mode"],
+        "properties": {
+          "pillar_id": { "type": "string" },
+          "mode": { "type": "string", "enum": ["egalitarian", "hierarchical"] },
+          "scores": { "type": "object" },
+          "forces_data": { "type": "object" }
+        }
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "assessment": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "user_id": { "type": "string", "format": "uuid" },
+              "pillar_id": { "type": "string" },
+              "mode": { "type": "string" },
+              "scores": { "type": "object" },
+              "forces_data": { "type": "object" },
+              "created_at": { "type": "string", "format": "date-time" },
+              "updated_at": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      }
+    },
+
+    "assessments_get": {
+      "path": "/assessments/:id",
+      "method": "GET",
+      "description": "Get specific assessment",
+      "parameters": {
+        "id": { "type": "string", "format": "uuid", "description": "Assessment ID" }
+      },
+      "headers": {
+        "Authorization": "Bearer <token>"
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "assessment": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "user_id": { "type": "string", "format": "uuid" },
+              "pillar_id": { "type": "string" },
+              "mode": { "type": "string" },
+              "scores": { "type": "object" },
+              "forces_data": { "type": "object" },
+              "created_at": { "type": "string", "format": "date-time" },
+              "updated_at": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      }
+    },
+
+    "blog_posts": {
+      "path": "/blog/posts",
+      "method": "GET",
+      "description": "List published blog posts",
+      "response": {
+        "type": "object",
+        "properties": {
+          "posts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "title": { "type": "string" },
+                "slug": { "type": "string" },
+                "excerpt": { "type": "string" },
+                "author_id": { "type": "string", "format": "uuid" },
+                "published_date": { "type": "string", "format": "date-time" },
+                "metadata": { "type": "object" },
+                "tags": { "type": "array", "items": { "type": "string" } },
+                "pillar": { "type": "string" },
+                "force_vector": { "type": "string" },
+                "social_image_url": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "blog_post": {
+      "path": "/blog/posts/:slug",
+      "method": "GET",
+      "description": "Get specific blog post",
+      "parameters": {
+        "slug": { "type": "string", "description": "Post slug" }
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "post": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "title": { "type": "string" },
+              "slug": { "type": "string" },
+              "content": { "type": "string" },
+              "excerpt": { "type": "string" },
+              "author_id": { "type": "string", "format": "uuid" },
+              "published_date": { "type": "string", "format": "date-time" },
+              "metadata": { "type": "object" },
+              "tags": { "type": "array", "items": { "type": "string" } },
+              "pillar": { "type": "string" },
+              "force_vector": { "type": "string" },
+              "social_image_url": { "type": "string" },
+              "created_at": { "type": "string", "format": "date-time" },
+              "updated_at": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      }
+    },
+
+    "blog_pillars": {
+      "path": "/blog/pillars",
+      "method": "GET",
+      "description": "Get unique pillars for filtering",
+      "response": {
+        "type": "object",
+        "properties": {
+          "pillars": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "blog_tags": {
+      "path": "/blog/tags",
+      "method": "GET",
+      "description": "Get unique tags for filtering",
+      "response": {
+        "type": "object",
+        "properties": {
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+
+  "authentication": {
+    "type": "Bearer Token",
+    "description": "JWT tokens from Supabase Auth",
+    "header": "Authorization: Bearer <token>"
+  },
+
+  "error_responses": {
+    "400": {
+      "description": "Bad Request",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" }
+        }
+      }
+    },
+    "401": {
+      "description": "Unauthorized",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" }
+        }
+      }
+    },
+    "404": {
+      "description": "Not Found",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" }
+        }
+      }
+    },
+    "500": {
+      "description": "Internal Server Error",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" }
+        }
+      }
+    }
+  }
+}

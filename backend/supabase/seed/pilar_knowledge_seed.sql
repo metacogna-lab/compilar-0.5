@@ -1,0 +1,76 @@
+-- Seed PILAR Knowledge Base with framework data
+-- This data is derived from src/components/pilar/pillarsData.jsx
+
+-- Egalitarian Pillars
+INSERT INTO pilar_knowledge (pillar_id, mode, title, description, abbreviation, icon, color, forces, indicators, key_questions, full_description) VALUES
+('divsexp', 'egalitarian', 'Diverse Expression', 'Your willingness to defend the status quo by expressing opinions in support of it, and suppressing other members'' suggestions to change it. Similar to Group Think.', 'DivsExp', 'Compass', 'violet', '[
+  {"name": "Predictability Preferred", "description": "Supporting the status quo makes you appear reliable and stable, increasing others'' willingness to partner with you in hierarchical exchanges.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Rewards of Conformity", "description": "Sacrificing individuality for group norms creates expectations of reciprocal benefits from authority figures (the \"loyal soldier\" dynamic).", "increment": 0.1, "decrement": -0.1},
+  {"name": "Stability Preference", "description": "Valuing predictability and control over adaptation creates resistance to organizational change.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Norm Enforcement", "description": "Active correction or suppression of deviation (subtle or explicit), increasing coherence but risking reduced candour and innovation.", "increment": 0.1, "decrement": -0.1}
+]'::jsonb, '{"high": ["Frequently references \"how we''ve always done it\"", "Uncomfortable with process changes", "Emphasizes rules and procedures", "Discourages experimental approaches"], "low": ["Champions innovation and change", "Questions established practices", "Encourages diverse viewpoints", "Adapts quickly to new methods"]}'::jsonb, '["Do you support maintaining current processes?", "How open are you to others'' change suggestions?", "Do you feel responsible for preserving organizational traditions?", "How do you react when someone challenges established procedures?"]'::text[], 'Normative Expression represents the extent to which you actively support and defend existing group norms, processes, and power structures. When high, you act as a guardian of the status quo, ensuring stability and predictability. This can manifest as discouraging dissent, reinforcing established hierarchies, and rewarding conformity. While this creates organizational stability, it can also suppress innovation and adaptability.'),
+
+('indrecip', 'egalitarian', 'Indirect Reciprocity', 'Your willingness to participate in a norm where assistance is only rendered with expectation of repayment. Provision of conditional assistance to others in the group.', 'IndRecip', 'Heart', 'pink', '[
+  {"name": "Conditional Help", "description": "Assistance is given with clear expectations of return favors or benefits.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Favor Trading", "description": "Help is explicitly tracked and exchanged like currency between individuals.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Pick and Stick", "description": "Receiving help makes you feel higher status, implying others want you in their debt.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Debt Leverage", "description": "Accumulated obligations can be used to influence behaviour or secure future concessions, strengthening control but eroding trust.", "increment": 0.1, "decrement": -0.1}
+]'::jsonb, '{"high": ["Keeps mental ledger of favors", "Explicitly negotiates exchanges", "Expects quid pro quo", "Transactional approach to help"], "low": ["Helps without expectations", "Doesn''t track favors", "Unconditional support", "Generous with assistance"]}'::jsonb, '["Do you expect favors to be returned?", "Do you help with expectation of reciprocation?", "Do you track who owes you assistance?", "Is cooperation explicitly negotiated?"]'::text[], 'Direct Reciprocity involves conditional helping where assistance is explicitly traded like currency. You help others with clear expectations of return favors or benefits. This creates transactional relationships based on "what''s in it for me" principles, with support tracked and exchanged bilaterally.'),
+
+('popularity', 'egalitarian', 'Popularity', 'The seniority you have been awarded within the group. The formal power you have to compel others and make decisions on behalf of the group.', 'Popularity', 'Shield', 'indigo', '[
+  {"name": "Formal Authority", "description": "Power derived from your position, rank, or official role in the structure.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Command Capacity", "description": "The ability to compel others to act based on your hierarchical position.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Built-in Advantage", "description": "Higher status allows you to control and extract more of the group''s output.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Control of Resources", "description": "Access to and allocation of resources (information, budget, roles) strengthens influence and compliance.", "increment": 0.1, "decrement": -0.1}
+]'::jsonb, '{"high": ["Has decision-making power", "Can override others", "Controls resources", "Formal leadership role"], "low": ["Limited authority", "Consensus-based influence", "Peer-level interactions", "Minimal command power"]}'::jsonb, '["What formal authority do you hold?", "Can you compel others to act?", "Do you make binding decisions?", "What is your rank in the hierarchy?"]'::text[], 'Status represents your formal hierarchical power derived from position, rank, or official role. It grants you the capacity to compel others to act based on organizational authority, make binding decisions that others must follow, and use reporting lines to enforce compliance.'),
+
+('grpprosp', 'egalitarian', 'Group Prospects', 'Your willingness to participate in a norm where assistance is only rendered with expectation of repayment. Provision of conditional assistance to others in the group.', 'GrpProsp', 'Zap', 'emerald', '[
+  {"name": "Goal Clarity", "description": "The degree to which individuals clearly understand the objectives, success criteria, and intended outcomes of collective action.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Future Confidence", "description": "The belief that future outcomes will be positive and worth investing in.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Shared Vision", "description": "The extent to which people hold a common mental model of the future.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Incentive Alignment", "description": "The alignment between individual rewards and collective outcomes.", "increment": 0.1, "decrement": -0.1}
+]'::jsonb, '{"high": ["Clear success metrics communicated", "Shared understanding of goals", "Common future vision", "Aligned incentives"], "low": ["Unclear objectives", "Conflicting goals", "Individual focus", "Misaligned incentives"]}'::jsonb, '["Are goals clearly defined?", "Do you believe in future success?", "Is vision shared across team?", "Are incentives aligned?"]'::text[], 'Group Prospects represents the collective belief in future success and shared vision. It encompasses goal clarity, future confidence, shared vision, and incentive alignment that drive group motivation and performance.'),
+
+('outresp', 'egalitarian', 'Outgoing Respect', 'Your willingness to participate in a norm where assistance is only rendered with expectation of repayment. Provision of conditional assistance to others in the group.', 'OutResp', 'BookOpen', 'amber', '[
+  {"name": "Competence Signals", "description": "Demonstrating expertise and capability to gain respect.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Trust Signals", "description": "Building trust through consistent, reliable behavior.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Learning Emulation", "description": "Others learn from and emulate your successful approaches.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Credibility Loop", "description": "Respect earned leads to more opportunities to demonstrate competence.", "increment": 0.1, "decrement": -0.1}
+]'::jsonb, '{"high": ["Demonstrates expertise", "Builds trust consistently", "Others learn from you", "High credibility"], "low": ["Questions competence", "Trust issues", "Limited influence", "Low credibility"]}'::jsonb, '["Do others respect your competence?", "Do you demonstrate expertise?", "Do people trust your judgment?", "Are you seen as credible?"]'::text[], 'Outgoing Respect represents how others perceive and value your competence and character. It involves competence signals, trust signals, learning emulation, and credibility loops that establish your reputation within the group.');
+
+-- Hierarchical Pillars
+INSERT INTO pilar_knowledge (pillar_id, mode, title, description, abbreviation, icon, color, forces, indicators, key_questions, full_description) VALUES
+('normexp', 'hierarchical', 'Normative Expression', 'Your willingness to defend the status quo by expressing opinions in support of it, and suppressing other members'' suggestions to change it. Similar to Group Think.', 'NormExp', 'Compass', 'violet', '[
+  {"name": "Predictability Preferred", "description": "Supporting the status quo makes you appear reliable and stable.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Rewards of Conformity", "description": "Sacrificing individuality for group norms creates expectations of reciprocal benefits.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Stability Preference", "description": "Valuing predictability and control over adaptation.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Norm Enforcement", "description": "Active correction or suppression of deviation.", "increment": 0.1, "decrement": -0.1}
+]'::jsonb, '{"high": ["Defends status quo", "Resists change", "Enforces norms", "Values stability"], "low": ["Challenges norms", "Embraces change", "Questions authority", "Values innovation"]}'::jsonb, '["Do you defend the status quo?", "How do you react to change?", "Do you enforce norms?", "What value does stability have?"]'::text[], 'Normative Expression in hierarchical contexts involves defending established authority structures and organizational norms. High expression supports stability and predictability but may suppress innovation.'),
+
+('dirrecip', 'hierarchical', 'Direct Reciprocity', 'Transactional helping with clear expectations of return favors or benefits.', 'DirRecip', 'Heart', 'pink', '[
+  {"name": "Conditional Help", "description": "Assistance given with clear expectations of return.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Favor Trading", "description": "Help explicitly tracked and exchanged.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Pick and Stick", "description": "Receiving help implies higher status.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Debt Leverage", "description": "Obligations used to influence behavior.", "increment": 0.1, "decrement": -0.1}
+]'::jsonb, '{"high": ["Tracks favors carefully", "Negotiates exchanges", "Expects returns", "Uses obligations"], "low": ["Gives freely", "Doesn''t track favors", "Unconditional help", "Avoids leverage"]}'::jsonb, '["Do you track favors?", "Do you negotiate help?", "Do you expect returns?", "Do you use obligations?"]'::text[], 'Direct Reciprocity in hierarchies involves transactional exchanges where help is given with explicit expectations of return, often leveraging power dynamics and obligations.'),
+
+('status', 'hierarchical', 'Status', 'Formal hierarchical power derived from position, rank, or official role.', 'Status', 'Shield', 'indigo', '[
+  {"name": "Formal Authority", "description": "Power from position, rank, or role.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Command Capacity", "description": "Ability to compel others to act.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Built-in Advantage", "description": "Higher status allows control of resources.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Control of Resources", "description": "Access to and allocation of resources.", "increment": 0.1, "decrement": -0.1}
+]'::jsonb, '{"high": ["Formal authority", "Decision power", "Resource control", "Command capacity"], "low": ["Limited authority", "Consensus decisions", "Shared resources", "Peer influence"]}'::jsonb, '["What authority do you have?", "Can you compel action?", "Do you control resources?", "What is your rank?"]'::text[], 'Status represents formal hierarchical power and authority derived from organizational position. It enables command capacity, resource control, and formal decision-making authority.'),
+
+('ownprosp', 'hierarchical', 'Own Prospects', 'Personal advancement and individual success within hierarchical structures.', 'OwnProsp', 'Zap', 'emerald', '[
+  {"name": "Goal Clarity", "description": "Clear understanding of personal objectives.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Future Confidence", "description": "Belief in personal future success.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Shared Vision", "description": "Alignment with organizational vision.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Incentive Alignment", "description": "Personal incentives align with organizational goals.", "increment": 0.1, "decrement": -0.1}
+]'::jsonb, '{"high": ["Clear career goals", "Confident in advancement", "Understands hierarchy", "Motivated by status"], "low": ["Unclear ambitions", "Limited confidence", "Questions hierarchy", "Motivated by other factors"]}'::jsonb, '["What are your career goals?", "Do you believe in advancement?", "How do you navigate hierarchy?", "What motivates you?"]'::text[], 'Own Prospects represents personal ambition and advancement within hierarchical structures. It involves understanding organizational dynamics and leveraging them for individual success.'),
+
+('incresp', 'hierarchical', 'Incoming Respect', 'How others perceive your competence and defer to your authority.', 'IncResp', 'BookOpen', 'amber', '[
+  {"name": "Competence Signals", "description": "Demonstrating expertise to gain deference.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Trust Signals", "description": "Building trust through authority.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Learning Emulation", "description": "Others emulate your approaches.", "increment": 0.1, "decrement": -0.1},
+  {"name": "Credibility Loop", "description": "Authority enhances credibility.", "increment": 0.1, "decrement": -0.1}
+]'::jsonb, '{"high": ["Commands respect", "Authority recognized", "Others defer", "High credibility"], "low": ["Respect questioned", "Authority challenged", "Limited deference", "Low credibility"]}'::jsonb, '["Do others respect you?", "Is your authority recognized?", "Do people defer to you?", "Are you seen as credible?"]'::text[], 'Incoming Respect represents how others perceive and defer to your authority and competence within hierarchical structures. It involves credibility, deference, and recognition of status.');

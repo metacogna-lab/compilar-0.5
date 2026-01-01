@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Compilar Content Database Schema",
+  "description": "Content management and PILAR knowledge base tables",
+  "version": "1.0.0",
+
+  "tables": {
+    "cms_content": {
+      "description": "Content management system for blog posts, pages, and resources",
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "default": "uuid_generate_v4()",
+          "primary_key": true
+        },
+        "title": {
+          "type": "text",
+          "not_null": true,
+          "description": "Content title"
+        },
+        "slug": {
+          "type": "text",
+          "not_null": true,
+          "unique": true,
+          "description": "URL-friendly identifier"
+        },
+        "content": {
+          "type": "text",
+          "not_null": true,
+          "description": "Full content (Markdown)"
+        },
+        "excerpt": {
+          "type": "text",
+          "description": "Short content preview"
+        },
+        "content_type": {
+          "type": "text",
+          "not_null": true,
+          "default": "'blog'",
+          "enum": ["blog", "page", "resource"],
+          "description": "Type of content"
+        },
+        "status": {
+          "type": "text",
+          "not_null": true,
+          "default": "'draft'",
+          "enum": ["draft", "published", "archived"],
+          "description": "Publication status"
+        },
+        "author_id": {
+          "type": "uuid",
+          "references": "auth.users(id)",
+          "on_delete": "SET NULL",
+          "description": "Content author"
+        },
+        "published_date": {
+          "type": "timestamp with time zone",
+          "description": "Publication timestamp"
+        },
+        "metadata": {
+          "type": "jsonb",
+          "default": "{}",
+          "not_null": true,
+          "description": "Additional metadata (SEO, etc.)"
+        },
+        "tags": {
+          "type": "text[]",
+          "default": "'{}'",
+          "description": "Content tags"
+        },
+        "pillar": {
+          "type": "text",
+          "description": "Related PILAR pillar"
+        },
+        "force_vector": {
+          "type": "text",
+          "description": "Related psychological force"
+        },
+        "social_image_url": {
+          "type": "text",
+          "description": "Social media image URL"
+        },
+        "created_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        },
+        "updated_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        }
+      },
+      "indexes": ["status", "slug", "content_type", "published_date"],
+      "triggers": ["updated_at"],
+      "rls_policies": [
+        "Anyone can view published content",
+        "Authenticated users can create content",
+        "Users can update their own content"
+      ]
+    },
+
+    "pilar_knowledge": {
+      "description": "Static PILAR framework knowledge base",
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "default": "uuid_generate_v4()",
+          "primary_key": true
+        },
+        "pillar_id": {
+          "type": "text",
+          "not_null": true,
+          "description": "Pillar identifier"
+        },
+        "mode": {
+          "type": "text",
+          "not_null": true,
+          "enum": ["egalitarian", "hierarchical"],
+          "description": "Coordination mode"
+        },
+        "title": {
+          "type": "text",
+          "not_null": true,
+          "description": "Pillar full title"
+        },
+        "description": {
+          "type": "text",
+          "not_null": true,
+          "description": "Pillar description"
+        },
+        "abbreviation": {
+          "type": "text",
+          "description": "Pillar abbreviation"
+        },
+        "icon": {
+          "type": "text",
+          "description": "UI icon identifier"
+        },
+        "color": {
+          "type": "text",
+          "description": "UI color theme"
+        },
+        "forces": {
+          "type": "jsonb",
+          "default": "[]",
+          "not_null": true,
+          "description": "Psychological forces data"
+        },
+        "indicators": {
+          "type": "jsonb",
+          "default": "{}",
+          "not_null": true,
+          "description": "High/low indicators"
+        },
+        "key_questions": {
+          "type": "text[]",
+          "default": "'{}'",
+          "description": "Assessment questions"
+        },
+        "full_description": {
+          "type": "text",
+          "description": "Detailed pillar description"
+        },
+        "created_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        },
+        "updated_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        }
+      },
+      "indexes": ["pillar_id", "mode"],
+      "constraints": ["UNIQUE(pillar_id, mode)"],
+      "triggers": ["updated_at"],
+      "rls_policies": ["Anyone can view PILAR knowledge"]
+    }
+  }
+}

@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Compilar Core Database Schema",
+  "description": "Core tables for user management and PILAR assessments",
+  "version": "1.0.0",
+
+  "tables": {
+    "user_profiles": {
+      "description": "Extended user information extending Supabase auth.users",
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "references": "auth.users(id)",
+          "primary_key": true,
+          "description": "References Supabase auth user"
+        },
+        "email": {
+          "type": "text",
+          "not_null": true,
+          "description": "User email address"
+        },
+        "full_name": {
+          "type": "text",
+          "description": "User's full name"
+        },
+        "avatar_url": {
+          "type": "text",
+          "description": "Profile picture URL"
+        },
+        "created_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        },
+        "updated_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        }
+      },
+      "indexes": ["email"],
+      "triggers": ["updated_at"],
+      "rls_policies": [
+        "Users can view their own profile",
+        "Users can update their own profile",
+        "Users can insert their own profile"
+      ]
+    },
+
+    "pilar_assessments": {
+      "description": "User assessment results by pillar and mode",
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "default": "uuid_generate_v4()",
+          "primary_key": true
+        },
+        "user_id": {
+          "type": "uuid",
+          "references": "auth.users(id)",
+          "not_null": true,
+          "on_delete": "CASCADE"
+        },
+        "pillar_id": {
+          "type": "text",
+          "not_null": true,
+          "description": "Pillar identifier (e.g., 'divsexp', 'status')"
+        },
+        "mode": {
+          "type": "text",
+          "not_null": true,
+          "enum": ["egalitarian", "hierarchical"],
+          "description": "Assessment mode"
+        },
+        "scores": {
+          "type": "jsonb",
+          "default": "{}",
+          "not_null": true,
+          "description": "Assessment scores data"
+        },
+        "forces_data": {
+          "type": "jsonb",
+          "default": "{}",
+          "not_null": true,
+          "description": "Psychological forces data"
+        },
+        "created_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        },
+        "updated_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        }
+      },
+      "indexes": ["user_id", "pillar_id", "mode"],
+      "triggers": ["updated_at"],
+      "rls_policies": [
+        "Users can view their own assessments",
+        "Users can create their own assessments",
+        "Users can update their own assessments"
+      ]
+    },
+
+    "assessment_sessions": {
+      "description": "Assessment session tracking and state management",
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "default": "uuid_generate_v4()",
+          "primary_key": true
+        },
+        "user_id": {
+          "type": "uuid",
+          "references": "auth.users(id)",
+          "not_null": true,
+          "on_delete": "CASCADE"
+        },
+        "pillar_id": {
+          "type": "text",
+          "description": "Selected pillar for session"
+        },
+        "mode": {
+          "type": "text",
+          "enum": ["egalitarian", "hierarchical"],
+          "description": "Selected mode for session"
+        },
+        "stage": {
+          "type": "text",
+          "default": "'profile'",
+          "not_null": true,
+          "description": "Current assessment stage"
+        },
+        "responses": {
+          "type": "jsonb",
+          "default": "{}",
+          "not_null": true,
+          "description": "User responses data"
+        },
+        "results": {
+          "type": "jsonb",
+          "description": "Assessment results"
+        },
+        "session_quality_score": {
+          "type": "decimal(3,2)",
+          "description": "Quality score for the session"
+        },
+        "started_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        },
+        "completed_at": {
+          "type": "timestamp with time zone",
+          "description": "Session completion timestamp"
+        },
+        "created_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        },
+        "updated_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        }
+      },
+      "indexes": ["user_id", "stage", "started_at"],
+      "triggers": ["updated_at"],
+      "rls_policies": [
+        "Users can view their own sessions",
+        "Users can create their own sessions",
+        "Users can update their own sessions"
+      ]
+    },
+
+    "user_progress": {
+      "description": "User learning progress and mastery tracking",
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "default": "uuid_generate_v4()",
+          "primary_key": true
+        },
+        "user_id": {
+          "type": "uuid",
+          "references": "auth.users(id)",
+          "not_null": true,
+          "on_delete": "CASCADE"
+        },
+        "pillar_id": {
+          "type": "text",
+          "not_null": true
+        },
+        "mode": {
+          "type": "text",
+          "not_null": true,
+          "enum": ["egalitarian", "hierarchical"]
+        },
+        "current_level": {
+          "type": "integer",
+          "default": 1,
+          "not_null": true
+        },
+        "experience_points": {
+          "type": "integer",
+          "default": 0,
+          "not_null": true
+        },
+        "completed_challenges": {
+          "type": "integer",
+          "default": 0,
+          "not_null": true
+        },
+        "mastery_score": {
+          "type": "decimal(5,2)",
+          "description": "Overall mastery score"
+        },
+        "last_activity": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        },
+        "created_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        },
+        "updated_at": {
+          "type": "timestamp with time zone",
+          "default": "NOW()",
+          "not_null": true
+        }
+      },
+      "indexes": ["user_id", "pillar_id", "mode"],
+      "constraints": ["UNIQUE(user_id, pillar_id, mode)"],
+      "triggers": ["updated_at"],
+      "rls_policies": [
+        "Users can view their own progress",
+        "Users can create their own progress",
+        "Users can update their own progress"
+      ]
+    }
+  }
+}
