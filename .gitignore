@@ -2,6 +2,9 @@
 *.env
 .env.production
 
+docs/
+supabase/
+
 # Logs
 logs
 *.log
