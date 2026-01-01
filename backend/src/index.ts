@@ -12,6 +12,7 @@ import { users } from './routes/users'
 import { teams } from './routes/teams'
 import { analytics } from './routes/analytics'
 import { content } from './routes/content'
+import { functions } from './routes/functions'
 import { requireAuth } from './middleware/auth'
 import { errorHandler } from './middleware/error'
 
@@ -87,6 +88,7 @@ api.route('/users', users)
 api.route('/teams', teams)
 api.route('/analytics', analytics)
 api.route('/content', content)
+api.route('/functions', functions)
 
 // Mount API routes
 app.route('/api/v1', api)

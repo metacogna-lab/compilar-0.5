@@ -19,6 +19,10 @@
           "not_null": true,
           "description": "User email address"
         },
+        "display_name": {
+          "type": "text",
+          "description": "User's display name"
+        },
         "full_name": {
           "type": "text",
           "description": "User's full name"
@@ -26,6 +30,31 @@
         "avatar_url": {
           "type": "text",
           "description": "Profile picture URL"
+        },
+        "bio": {
+          "type": "text",
+          "description": "User biography"
+        },
+        "preferred_mode": {
+          "type": "text",
+          "enum": ["egalitarian", "hierarchical"],
+          "description": "User's preferred PILAR mode"
+        },
+        "preferences": {
+          "type": "jsonb",
+          "default": "{}",
+          "description": "User preferences and settings"
+        },
+        "metadata": {
+          "type": "jsonb",
+          "default": "{}",
+          "description": "Additional user metadata"
+        },
+        "role": {
+          "type": "text",
+          "default": "user",
+          "enum": ["user", "admin"],
+          "description": "User role for permissions"
         },
         "created_at": {
           "type": "timestamp with time zone",
@@ -38,12 +67,13 @@
           "not_null": true
         }
       },
-      "indexes": ["email"],
+      "indexes": ["email", "role"],
       "triggers": ["updated_at"],
       "rls_policies": [
         "Users can view their own profile",
         "Users can update their own profile",
-        "Users can insert their own profile"
+        "Users can insert their own profile",
+        "Admins can view all profiles"
       ]
     },
 

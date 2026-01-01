@@ -1,13 +1,8 @@
 import { z } from 'zod'
 import {
   pilarAssessmentSchema,
-  pilarAssessmentInsertSchema,
   cmsContentSchema,
-  userProfileSchema,
   assessmentSessionSchema,
-  assessmentSessionInsertSchema,
-  coachConversationSchema,
-  coachConversationInsertSchema,
 } from './database'
 
 // Auth API Schemas
@@ -100,15 +95,15 @@ export const generateCoachingResponseSchema = z.object({
   conversation_id: z.string().uuid(),
 })
 
-// RAG Query API Schemas
-export const ragQueryRequestSchema = z.object({
+// Legacy RAG Query API Schemas (keeping for backward compatibility)
+export const legacyRagQueryRequestSchema = z.object({
   query: z.string(),
   pillar: z.string().optional(),
   mode: z.enum(['egalitarian', 'hierarchical']).optional(),
   context: z.record(z.any()).optional(),
 })
 
-export const ragQueryResponseSchema = z.object({
+export const legacyRagQueryResponseSchema = z.object({
   answer: z.string(),
   sources: z.array(z.object({
     content: z.string(),
@@ -215,6 +210,94 @@ export const healthResponseSchema = z.object({
   }).optional(),
 })
 
+// AI API Schemas (aligned with API specification)
+
+// Coach Conversation API Schemas
+export const coachConversationRequestSchema = z.object({
+  message: z.string().min(1),
+  context: z.object({
+    pillar_id: z.string().optional(),
+    mode: z.enum(['egalitarian', 'hierarchical']).optional(),
+    assessment_id: z.string().uuid().optional()
+  }).optional(),
+  conversation_id: z.string().uuid().optional()
+});
+
+export const coachConversationResponseSchema = z.object({
+  conversation_id: z.string().uuid(),
+  response: z.string(),
+  suggestions: z.array(z.string()).optional(),
+  follow_up_questions: z.array(z.string()).optional()
+});
+
+// RAG Query API Schemas
+export const ragQueryRequestSchema = z.object({
+  query: z.string().min(1),
+  pillar_id: z.string().optional(),
+  mode: z.enum(['egalitarian', 'hierarchical']).optional(),
+  context: z.string().optional()
+});
+
+export const ragQueryResponseSchema = z.object({
+  response: z.string(),
+  sources: z.array(z.object({
+    title: z.string(),
+    relevance_score: z.number().min(0).max(1),
+    excerpt: z.string().optional()
+  })).optional(),
+  related_pillars: z.array(z.string()).optional()
+});
+
+// Assessment Guidance API Schemas
+export const assessmentGuidanceRequestSchema = z.object({
+  assessment_id: z.string().uuid(),
+  user_profile: z.record(z.any()).optional(),
+  conversation_history: z.array(z.any()).optional()
+});
+
+export const assessmentGuidanceResponseSchema = z.object({
+  guidance: z.string(),
+  assessment_data: z.record(z.any()),
+  conversation_context: z.array(z.any())
+});
+
+// Content Analysis API Schemas
+export const contentAnalysisRequestSchema = z.object({
+  content: z.string().min(1),
+  content_type: z.string().optional()
+});
+
+export const contentAnalysisResponseSchema = z.object({
+  pilar_alignment: z.record(z.object({
+    score: z.number().min(0).max(1),
+    confidence: z.number().min(0).max(1)
+  })),
+  key_themes: z.array(z.string()),
+  recommendations: z.array(z.string())
+});
+
+// Enhanced Generic API Response Schema (with pagination and timing)
+export const enhancedApiResponseSchema = <T extends z.ZodType>(dataSchema: T) => z.object({
+  data: dataSchema.optional(),
+  error: z.object({
+    code: z.string(),
+    message: z.string(),
+    details: z.any().optional()
+  }).optional(),
+  meta: z.object({
+    timestamp: z.string().datetime(),
+    requestId: z.string().uuid(),
+    version: z.string(),
+    executionTime: z.number().optional(),
+    pagination: z.object({
+      total: z.number(),
+      limit: z.number(),
+      offset: z.number(),
+      has_more: z.boolean()
+    }).optional()
+  })
+});
+
 // Type exports
 export type AuthMeResponse = z.infer<typeof authMeResponseSchema>
 export type CreateAssessmentRequest = z.infer<typeof createAssessmentRequestSchema>
@@ -229,8 +312,8 @@ export type GetBlogPillarsResponse = z.infer<typeof getBlogPillarsResponseSchema
 export type GetBlogTagsResponse = z.infer<typeof getBlogTagsResponseSchema>
 export type GenerateCoachingRequest = z.infer<typeof generateCoachingRequestSchema>
 export type GenerateCoachingResponse = z.infer<typeof generateCoachingResponseSchema>
-export type RagQueryRequest = z.infer<typeof ragQueryRequestSchema>
-export type RagQueryResponse = z.infer<typeof ragQueryResponseSchema>
+export type LegacyRagQueryRequest = z.infer<typeof legacyRagQueryRequestSchema>
+export type LegacyRagQueryResponse = z.infer<typeof legacyRagQueryResponseSchema>
 export type GenerateQuestionsRequest = z.infer<typeof generateQuestionsRequestSchema>
 export type GenerateQuestionsResponse = z.infer<typeof generateQuestionsResponseSchema>
 export type CreateContentRequest = z.infer<typeof createContentRequestSchema>
@@ -240,5 +323,13 @@ export type ListContentResponse = z.infer<typeof listContentResponseSchema>
 export type CreateTeamRequest = z.infer<typeof createTeamRequestSchema>
 export type CreateTeamResponse = z.infer<typeof createTeamResponseSchema>
 export type ListTeamsResponse = z.infer<typeof listTeamsResponseSchema>
+export type CoachConversationRequest = z.infer<typeof coachConversationRequestSchema>
+export type CoachConversationResponse = z.infer<typeof coachConversationResponseSchema>
+export type RagQueryRequestSpec = z.infer<typeof ragQueryRequestSchema>
+export type RagQueryResponseSpec = z.infer<typeof ragQueryResponseSchema>
+export type AssessmentGuidanceRequest = z.infer<typeof assessmentGuidanceRequestSchema>
+export type AssessmentGuidanceResponse = z.infer<typeof assessmentGuidanceResponseSchema>
+export type ContentAnalysisRequest = z.infer<typeof contentAnalysisRequestSchema>
+export type ContentAnalysisResponse = z.infer<typeof contentAnalysisResponseSchema>
 export type ErrorResponse = z.infer<typeof errorResponseSchema>
 export type HealthResponse = z.infer<typeof healthResponseSchema>
