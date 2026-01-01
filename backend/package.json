@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
-    "build": "bun build src/index.ts --outdir dist",
+    "build": "bun build src/index.ts --outdir dist --target node",
     "start": "bun run dist/index.js",
     "setup-env": "bun run setup-env.js",
     "verify-setup": "bun run verify-setup.js",
@@ -19,15 +19,16 @@
     "db:reset": "supabase db reset"
   },
   "dependencies": {
-    "hono": "^4.0.0",
-    "@hono/zod-validator": "^0.1.0",
-    "@supabase/supabase-js": "^2.38.0",
-    "zod": "^3.22.0",
-    "dotenv": "^16.3.0",
     "@anthropic-ai/sdk": "^0.30.0",
-    "openai": "^4.73.0",
+    "@hono/zod-validator": "^0.1.0",
+    "@langchain/core": "^0.3.0",
+    "@supabase/supabase-js": "^2.38.0",
+    "dotenv": "^16.3.0",
+    "hono": "^4.0.0",
+    "ioredis": "^5.8.2",
     "langsmith": "^0.2.0",
-    "@langchain/core": "^0.3.0"
+    "openai": "^4.73.0",
+    "zod": "^3.22.0"
   },
   "devDependencies": {
     "bun-types": "^1.0.0",

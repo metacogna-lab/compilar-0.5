@@ -18,6 +18,7 @@ import type {
 } from '../types';
 import { LLMError, LLMRateLimitError, LLMContextLengthError } from '../types';
 import { BaseLLMProvider } from './base';
+import { circuitBreakerManager } from '../circuit-breaker';
 
 export class AnthropicProvider extends BaseLLMProvider {
   name: LLMProviderName = 'anthropic';
@@ -71,32 +72,40 @@ export class AnthropicProvider extends BaseLLMProvider {
     const { system, messages: anthropicMessages } = this.convertMessages(messages);
     const opts = this.getDefaultChatOptions(options);
 
+    const breaker = circuitBreakerManager.getBreaker('anthropic', {
+      failureThreshold: 5,
+      recoveryTimeout: 60000,
+      successThreshold: 3,
+    });
+
     try {
-      const completion = await this.client.messages.create({
-        model: opts.model,
-        messages: anthropicMessages,
-        max_tokens: opts.maxTokens,
-        temperature: opts.temperature,
-        top_p: opts.topP,
-        system: system || undefined,
-        stop_sequences: opts.stop ? (Array.isArray(opts.stop) ? opts.stop : [opts.stop]) : undefined,
+      return await breaker.execute(async () => {
+        const completion = await this.client.messages.create({
+          model: opts.model,
+          messages: anthropicMessages,
+          max_tokens: opts.maxTokens,
+          temperature: opts.temperature,
+          top_p: opts.topP,
+          system: system || undefined,
+          stop_sequences: opts.stop ? (Array.isArray(opts.stop) ? opts.stop : [opts.stop]) : undefined,
+        });
+
+        const content = completion.content[0];
+        if (!content || content.type !== 'text') {
+          throw new LLMError('No text response from Anthropic', this.name);
+        }
+
+        return {
+          content: content.text,
+          model: completion.model,
+          usage: {
+            promptTokens: completion.usage.input_tokens,
+            completionTokens: completion.usage.output_tokens,
+            totalTokens: completion.usage.input_tokens + completion.usage.output_tokens,
+          },
+          finishReason: completion.stop_reason || 'end_turn',
+        };
       });
-
-      const content = completion.content[0];
-      if (!content || content.type !== 'text') {
-        throw new LLMError('No text response from Anthropic', this.name);
-      }
-
-      return {
-        content: content.text,
-        model: completion.model,
-        usage: {
-          promptTokens: completion.usage.input_tokens,
-          completionTokens: completion.usage.output_tokens,
-          totalTokens: completion.usage.input_tokens + completion.usage.output_tokens,
-        },
-        finishReason: completion.stop_reason || 'end_turn',
-      };
     } catch (error: any) {
       this.handleError(error);
       throw error; // TypeScript requires this

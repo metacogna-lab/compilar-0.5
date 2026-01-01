@@ -72,12 +72,26 @@ export class RAGService {
     return await trace(
       'rag_semantic_search',
       async () => {
+        // Validate query
+        if (!query || query.trim().length === 0) {
+          throw new Error('Query cannot be empty');
+        }
+
+        if (query.length > 5000) {
+          throw new Error('Query exceeds maximum length of 5000 characters');
+        }
+
         // Generate embedding for query
         const embeddingResponse = await traceEmbed(
           () => this.llmService.embed(query),
           query,
           { ...metadata, feature: 'rag_query' }
         );
+
+        // Validate embedding dimensions
+        if (!embeddingResponse.embedding || embeddingResponse.embedding.length !== 1536) {
+          throw new Error(`Invalid embedding dimensions: expected 1536, got ${embeddingResponse.embedding?.length || 0}`);
+        }
 
         // Call Supabase RPC function for vector similarity search
         const { data, error } = await this.supabase.rpc('match_pilar_knowledge', {
@@ -90,15 +104,43 @@ export class RAGService {
         });
 
         if (error) {
+          // Check for common errors
+          if (error.message?.includes('function') && error.message?.includes('does not exist')) {
+            throw new Error(
+              'RAG database function "match_pilar_knowledge" not found. ' +
+              'Please run database migrations to create the required function.'
+            );
+          }
+
+          if (error.message?.includes('column') && error.message?.includes('does not exist')) {
+            throw new Error(
+              'RAG database schema is missing required columns. ' +
+              'Please run database migrations to update the schema.'
+            );
+          }
+
           throw new Error(`Vector search failed: ${error.message}`);
         }
 
-        return (data || []).map((result: any) => ({
-          id: result.id,
-          content: result.content,
-          metadata: result.metadata || {},
-          similarity: result.similarity,
-        }));
+        // Handle null data (function exists but no results)
+        if (!data) {
+          return [];
+        }
+
+        // Validate and transform results
+        return data.map((result: any, index: number) => {
+          if (!result.id || !result.content) {
+            console.warn(`Invalid RAG result at index ${index}:`, result);
+            return null;
+          }
+
+          return {
+            id: result.id,
+            content: result.content,
+            metadata: result.metadata || {},
+            similarity: result.similarity || 0,
+          };
+        }).filter((r: any) => r !== null);
       },
       { query, options },
       metadata

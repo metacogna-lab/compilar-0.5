@@ -4,6 +4,7 @@
  * Implementation for OpenAI GPT models
  */
 
+import { traceable } from "langsmith/traceable";
 import OpenAI from 'openai';
 import type {
   LLMProviderName,
@@ -18,6 +19,7 @@ import type {
 } from '../types';
 import { LLMError, LLMRateLimitError, LLMContextLengthError } from '../types';
 import { BaseLLMProvider } from './base';
+import { circuitBreakerManager } from '../circuit-breaker';
 
 export class OpenAIProvider extends BaseLLMProvider {
   name: LLMProviderName = 'openai';
@@ -68,43 +70,67 @@ export class OpenAIProvider extends BaseLLMProvider {
     options?: ChatOptions,
     metadata?: TraceMetadata
   ): Promise<ChatResponse> {
-    this.ensureAvailable();
-    this.validateMessages(messages);
+    return traceable(
+      async () => {
+        this.ensureAvailable();
+        this.validateMessages(messages);
 
-    const normalizedMessages = this.normalizeMessages(messages);
-    const opts = this.getDefaultChatOptions(options);
+        const normalizedMessages = this.normalizeMessages(messages);
+        const opts = this.getDefaultChatOptions(options);
 
-    try {
-      const completion = await this.client.chat.completions.create({
-        model: opts.model,
-        messages: normalizedMessages as OpenAI.Chat.ChatCompletionMessageParam[],
-        temperature: opts.temperature,
-        max_tokens: opts.maxTokens,
-        top_p: opts.topP,
-        frequency_penalty: opts.frequencyPenalty,
-        presence_penalty: opts.presencePenalty,
-        stop: opts.stop,
-      });
+        const breaker = circuitBreakerManager.getBreaker('openai', {
+          failureThreshold: 5,
+          recoveryTimeout: 60000,
+          successThreshold: 3,
+        });
 
-      const choice = completion.choices[0];
-      if (!choice || !choice.message) {
-        throw new LLMError('No response from OpenAI', this.name);
+        try {
+          return await breaker.execute(async () => {
+            const completion = await this.client.chat.completions.create({
+              model: opts.model,
+              messages: normalizedMessages as OpenAI.Chat.ChatCompletionMessageParam[],
+              temperature: opts.temperature,
+              max_tokens: opts.maxTokens,
+              top_p: opts.topP,
+              frequency_penalty: opts.frequencyPenalty,
+              presence_penalty: opts.presencePenalty,
+              stop: opts.stop,
+            });
+
+            const choice = completion.choices[0];
+            if (!choice || !choice.message) {
+              throw new LLMError('No response from OpenAI', this.name);
+            }
+
+            return {
+              content: choice.message.content || '',
+              model: completion.model,
+              usage: {
+                promptTokens: completion.usage?.prompt_tokens || 0,
+                completionTokens: completion.usage?.completion_tokens || 0,
+                totalTokens: completion.usage?.total_tokens || 0,
+              },
+              finishReason: choice.finish_reason || 'stop',
+            };
+          });
+        } catch (error: any) {
+          this.handleError(error);
+          throw error; // TypeScript requires this even though handleError always throws
+        }
+      },
+      {
+        name: "openai_chat",
+        run_type: "llm",
+        metadata: {
+          user_id: metadata?.userId,
+          feature: metadata?.feature,
+          pillar: metadata?.pillar,
+          mode: metadata?.mode,
+          model: options?.model || this.models.chat,
+          message_count: messages.length
+        }
       }
-
-      return {
-        content: choice.message.content || '',
-        model: completion.model,
-        usage: {
-          promptTokens: completion.usage?.prompt_tokens || 0,
-          completionTokens: completion.usage?.completion_tokens || 0,
-          totalTokens: completion.usage?.total_tokens || 0,
-        },
-        finishReason: choice.finish_reason || 'stop',
-      };
-    } catch (error: any) {
-      this.handleError(error);
-      throw error; // TypeScript requires this even though handleError always throws
-    }
+    )();
   }
 
   /**
@@ -171,37 +197,61 @@ export class OpenAIProvider extends BaseLLMProvider {
     options?: EmbedOptions,
     metadata?: TraceMetadata
   ): Promise<EmbedResponse> {
-    this.ensureAvailable();
+    return traceable(
+      async () => {
+        this.ensureAvailable();
 
-    if (!text || text.trim().length === 0) {
-      throw new Error('Text for embedding cannot be empty');
-    }
+        if (!text || text.trim().length === 0) {
+          throw new Error('Text for embedding cannot be empty');
+        }
 
-    const opts = this.getDefaultEmbedOptions(options);
+        const opts = this.getDefaultEmbedOptions(options);
 
-    try {
-      const response = await this.client.embeddings.create({
-        model: opts.model,
-        input: text,
-        dimensions: opts.dimensions,
-      });
+        const breaker = circuitBreakerManager.getBreaker('openai', {
+          failureThreshold: 5,
+          recoveryTimeout: 60000,
+          successThreshold: 3,
+        });
 
-      const embedding = response.data[0]?.embedding;
-      if (!embedding) {
-        throw new LLMError('No embedding returned from OpenAI', this.name);
+        try {
+          return await breaker.execute(async () => {
+            const response = await this.client.embeddings.create({
+              model: opts.model,
+              input: text,
+              dimensions: opts.dimensions,
+            });
+
+            const embedding = response.data[0]?.embedding;
+            if (!embedding) {
+              throw new LLMError('No embedding returned from OpenAI', this.name);
+            }
+
+            return {
+              embedding,
+              model: response.model,
+              usage: {
+                totalTokens: response.usage?.total_tokens || 0,
+              },
+            };
+          });
+        } catch (error: any) {
+          this.handleError(error);
+          throw error; // TypeScript requires this
+        }
+      },
+      {
+        name: "openai_embed",
+        run_type: "llm",
+        metadata: {
+          user_id: metadata?.userId,
+          feature: metadata?.feature,
+          pillar: metadata?.pillar,
+          mode: metadata?.mode,
+          model: options?.model || this.models.embed,
+          text_length: text.length
+        }
       }
-
-      return {
-        embedding,
-        model: response.model,
-        usage: {
-          totalTokens: response.usage?.total_tokens || 0,
-        },
-      };
-    } catch (error: any) {
-      this.handleError(error);
-      throw error; // TypeScript requires this
-    }
+    )();
   }
 
   /**

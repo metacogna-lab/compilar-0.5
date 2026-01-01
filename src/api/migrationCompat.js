@@ -176,5 +176,4 @@ export const migrationUtils = {
   }
 };
 
-// Export migration utilities
-export { migrationUtils };
+// Migration utilities are already exported above

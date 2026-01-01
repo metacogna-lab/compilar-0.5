@@ -6,7 +6,6 @@
  */
 
 import { Hono } from 'hono';
-import { supabase } from '../index';
 import { requireAuth } from '../middleware/auth';
 import { rateLimitGeneral } from '../middleware/ratelimit';
 import { shouldUseRestForFunction, logMigrationEvent } from '../config/feature-flags';
@@ -81,7 +80,7 @@ functions.post('/:functionName', requireAuth, rateLimitGeneral, async (c) => {
  * Handle generateQuestionsByDifficulty function
  */
 async function handleGenerateQuestions(user: any, body: any) {
-  const { pillar, mode, count = 10, difficulty } = body;
+  const { pillar, mode, count = 10 } = body;
 
   if (!pillar || !mode) {
     throw new Error('pillar and mode are required');

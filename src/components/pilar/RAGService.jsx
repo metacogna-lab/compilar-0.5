@@ -4,7 +4,7 @@
  * Uses caching for profile insights to minimize LLM calls
  */
 
-import { base44 } from '@/api/base44Client';
+import { restClient } from '@/api/restClient';
 
 const CACHE_STALENESS_THRESHOLD = 10; // Score difference threshold to trigger refresh
 
@@ -12,16 +12,16 @@ const CACHE_STALENESS_THRESHOLD = 10; // Score difference threshold to trigger r
  * Initialize the knowledge base (call once)
  */
 export async function initializeKnowledgeBase() {
-  const response = await base44.functions.invoke('ingestKnowledge', { action: 'ingest' });
-  return response.data;
+  const response = await restClient.post('/rag/initialize', { action: 'ingest' });
+  return response;
 }
 
 /**
  * Check knowledge base status
  */
 export async function getKnowledgeBaseStatus() {
-  const response = await base44.functions.invoke('ingestKnowledge', { action: 'status' });
-  return response.data;
+  const response = await restClient.post('/rag/status', { action: 'status' });
+  return response;
 }
 
 /**
@@ -29,15 +29,15 @@ export async function getKnowledgeBaseStatus() {
  */
 export async function searchKnowledge(query, options = {}) {
   const { pillar = 'all', topK = 5, minSimilarity = 0.7 } = options;
-  
-  const response = await base44.functions.invoke('vectorSearch', {
+
+  const response = await restClient.post('/rag/search', {
     query,
     pillar,
     topK,
     minSimilarity
   });
-  
-  return response.data;
+
+  return response;
 }
 
 /**
@@ -59,29 +59,12 @@ function isCacheStale(cachedScores, currentScores) {
 
 /**
  * Get cached profile insights or generate new ones
+ * TODO: Migrate to REST API for profile insights
  */
 export async function getCachedProfileInsights(userEmail, userProfile, forceRefresh = false) {
-  // Try to get cached insights
-  const cached = await base44.entities.UserProfileInsights.filter({ user_email: userEmail });
-  const existingInsights = cached[0];
-  
-  const currentScores = userProfile?.pillar_scores || {};
-  
-  // Return cached if valid and not stale
-  if (existingInsights && !forceRefresh && !isCacheStale(existingInsights.cached_scores, currentScores)) {
-    return { insights: existingInsights, fromCache: true };
-  }
-  
-  // Generate new insights via RAG
+  // For now, generate fresh insights without caching
+  // TODO: Implement REST API calls for profile insights caching
   const newInsights = await generateProfileInsights(userEmail, userProfile);
-  
-  // Store in cache
-  if (existingInsights) {
-    await base44.entities.UserProfileInsights.update(existingInsights.id, newInsights);
-  } else {
-    await base44.entities.UserProfileInsights.create(newInsights);
-  }
-  
   return { insights: newInsights, fromCache: false };
 }
 
@@ -111,15 +94,15 @@ Provide:
 4. How their strongest pillar can leverage growth
 5. A motivational insight based on PILAR principles`;
 
-  const ragResponse = await base44.functions.invoke('ragQuery', {
-    query: ragQuery,
-    userProfile,
-    context: { comprehensive: true },
-    topK: 8,
-    includeReasoning: true
-  });
+   const ragResponse = await restClient.post('/rag/query', {
+     query: ragQuery,
+     userProfile,
+     context: { comprehensive: true },
+     topK: 8,
+     includeReasoning: true
+   });
 
-  const answer = ragResponse.data?.answer || '';
+  const answer = ragResponse?.answer || '';
   const lines = answer.split('\n').filter(l => l.trim());
   
   // Build pillar insights
@@ -219,15 +202,15 @@ function generateInterconnectionInsights(scores) {
  * Simple queries should use cached insights
  */
 export async function getRAGResponse(query, userProfile, additionalContext = {}) {
-  const response = await base44.functions.invoke('ragQuery', {
+  const response = await restClient.post('/rag/query', {
     query,
     userProfile,
     context: additionalContext,
     topK: 5,
     includeReasoning: true
   });
-  
-  return response.data;
+
+  return response;
 }
 
 /**

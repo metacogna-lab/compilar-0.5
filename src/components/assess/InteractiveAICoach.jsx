@@ -3,32 +3,26 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Send, Loader2, MessageCircle, X, Lightbulb, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { base44 } from '@/api/base44Client';
+import { useAIChat } from '@/hooks/useRestApi';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 
-export default function InteractiveAICoach({ 
-  assessmentResults, 
-  userProfile, 
-  pillar, 
+export default function InteractiveAICoach({
+  assessmentResults,
+  userProfile,
+  pillar,
   mode,
   isOpen,
-  onClose 
+  onClose
 }) {
-  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const { messages, sendMessage, streaming } = useAIChat();
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
     if (isOpen && messages.length === 0) {
-      // Initial greeting with context
-      const initialMessage = {
-        role: 'assistant',
-        content: `Hello! I'm your PILAR AI Coach. I've reviewed your assessment on **${pillar}** (${mode} mode) where you scored **${assessmentResults?.score}%**.\n\nI can help you understand:\n• Your strengths and growth areas in this pillar\n• Specific forces you struggled with\n• Personalized next steps for improvement\n• How this pillar connects to others\n\nWhat would you like to explore?`,
-        timestamp: new Date().toISOString()
-      };
-      setMessages([initialMessage]);
+      // Initial greeting with context - this would be handled by the backend
+      // The useAIChat hook manages messages internally
     }
   }, [isOpen, messages.length]);
 
@@ -37,42 +31,21 @@ export default function InteractiveAICoach({
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || streaming) return;
 
-    const userMessage = {
-      role: 'user',
-      content: input.trim(),
-      timestamp: new Date().toISOString()
+    const context = {
+      assessment_id: assessmentResults?.id,
+      pillar,
+      mode,
+      conversation_id: `coach_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setIsLoading(true);
-
     try {
-      const sessionId = `coach_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const response = await base44.functions.invoke('coachConversation', {
-        messages: [...messages, userMessage],
-        assessmentResults,
-        userProfile,
-        pillar,
-        mode,
-        sessionId
-      });
-
-      if (response.data?.message) {
-        const assistantMessage = {
-          role: 'assistant',
-          content: response.data.message,
-          timestamp: new Date().toISOString()
-        };
-        setMessages(prev => [...prev, assistantMessage]);
-      }
+      await sendMessage(input.trim(), context);
+      setInput('');
     } catch (error) {
       console.error('Coach conversation error:', error);
       toast.error('Failed to get response from AI Coach');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -82,6 +55,8 @@ export default function InteractiveAICoach({
       handleSendMessage();
     }
   };
+
+  const isLoading = streaming;
 
   if (!isOpen) return null;
 

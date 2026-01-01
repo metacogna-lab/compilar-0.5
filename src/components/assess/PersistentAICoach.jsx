@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, Send, Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { base44 } from '@/api/base44Client';
+import { restClient } from '@/api/restClient';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
@@ -38,19 +38,42 @@ export default function PersistentAICoach({
           }
         }
 
-        // Generate new questions
-        const response = await base44.functions.invoke('generateCoachQuestions', {
-          userProfile,
-          sessionData
-        });
+        // Generate default coach questions (migrated from Base44)
+        const defaultQuestions = {
+          regular: [
+            "How are you feeling about your assessment results?",
+            "What surprised you most about your scores?",
+            "Can you think of a recent situation where this pillar was relevant?",
+            "What would you like to improve in this area?",
+            "How does this relate to your current work or relationships?"
+          ],
+          introduction: [
+            "What brings you to explore PILAR assessment today?",
+            "Have you taken similar assessments before?",
+            "What are your expectations from this coaching session?"
+          ],
+          assessment: [
+            "Which pillar scores surprised you the most?",
+            "Can you give an example of how this pillar shows up in your life?",
+            "What patterns do you notice in your results?"
+          ],
+          reflection: [
+            "What insights have you gained from this assessment?",
+            "How might you apply these insights moving forward?",
+            "What support do you need to implement these changes?"
+          ],
+          conclusion: [
+            "What was the most valuable part of this session?",
+            "What are your next steps based on what we've discussed?",
+            "How can I best support you going forward?"
+          ]
+        };
 
-        if (response.data?.questions) {
-          setCachedQuestions(response.data.questions);
-          localStorage.setItem(cacheKey, JSON.stringify({
-            questions: response.data.questions,
-            timestamp: Date.now()
-          }));
-        }
+        setCachedQuestions(defaultQuestions);
+        localStorage.setItem(cacheKey, JSON.stringify({
+          questions: defaultQuestions,
+          timestamp: Date.now()
+        }));
       } catch (error) {
         console.error('Failed to load questions:', error);
       }
@@ -75,21 +98,21 @@ export default function PersistentAICoach({
     setIsLoading(true);
 
     try {
-      const sessionId = sessionData?.session_id || `coach_${Date.now()}`;
-      const response = await base44.functions.invoke('coachConversation', {
-        messages: [...messages, userMessage],
-        assessmentResults: sessionData,
-        userProfile,
-        pillar: currentPillar,
-        mode: currentMode,
-        sessionId,
-        stage
+      const conversationId = sessionData?.session_id || `coach_${Date.now()}`;
+      const response = await restClient.post('/api/v1/ai/chat', {
+        message: text,
+        context: {
+          pillar_id: currentPillar,
+          mode: currentMode,
+          assessment_id: sessionData?.assessment_id
+        },
+        conversation_id: conversationId
       });
 
-      if (response.data?.message) {
+      if (response.response) {
         setMessages(prev => [...prev, {
           role: 'assistant',
-          content: response.data.message
+          content: response.response
         }]);
       }
     } catch (error) {

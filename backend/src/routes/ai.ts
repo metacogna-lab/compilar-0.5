@@ -7,7 +7,7 @@
 
 import { Hono } from 'hono';
 import { stream } from 'hono/streaming';
-import { supabase } from '../index';
+import { supabase } from '../config/database';
 import { requireAuth } from '../middleware/auth';
 import { rateLimitAI } from '../middleware/ratelimit';
 import { validateBody } from '../middleware/validation';
@@ -17,11 +17,11 @@ import { getLLMService } from '../services/llm/llm.service';
 import { traceChat } from '../services/llm/tracing';
 import {
   coachConversationRequestSchema,
-  ragQueryRequestSchema,
   assessmentGuidanceRequestSchema,
   contentAnalysisRequestSchema,
-  createApiResponse
+  generateQuestionsRequestSchema
 } from '../schemas/api';
+import { createApiResponse } from '../middleware/validation';
 import type { Message, TraceMetadata } from '../services/llm/types';
 
 const ai = new Hono();
@@ -30,109 +30,16 @@ const assessmentService = createAssessmentService(supabase);
 const llmService = getLLMService();
 
 /**
- * POST /api/v1/ai/coach/conversation
- * Start or continue AI coaching conversation (streaming)
+ * POST /api/v1/ai/coaching
+ * Generate personalized coaching feedback (streaming)
  */
-ai.post('/coach/conversation',
+ai.post('/coaching',
   requireAuth,
   rateLimitAI,
   validateBody(coachConversationRequestSchema),
   async (c) => {
     const user = c.get('user');
-    const { message, context, conversation_id } = c.get('validatedBody');
-
-    return stream(c, async (streamWriter) => {
-      try {
-        const coachingContext = {
-          userId: user.id,
-          assessmentId: context?.assessment_id,
-          pillar: context?.pillar_id,
-          mode: context?.mode,
-          conversationId: conversation_id,
-          history: []
-        };
-
-        const generator = coachingService.getChatbotResponse(message, coachingContext);
-
-        for await (const chunk of generator) {
-          await streamWriter.write(chunk);
-        }
-      } catch (error: any) {
-        await streamWriter.write(`\n\nError: ${error.message}`);
-      }
-    });
-  }
-);
-
-/**
- * POST /api/v1/ai/rag/query
- * Query PILAR knowledge base
- */
-ai.post('/rag/query',
-  requireAuth,
-  rateLimitAI,
-  validateBody(ragQueryRequestSchema),
-  async (c) => {
-    const user = c.get('user');
-    const { query, pillar_id, mode, context } = c.get('validatedBody');
-
-    try {
-      // For now, use the LLM service directly for RAG queries
-      // TODO: Implement proper RAG service with vector search
-      const systemPrompt = `You are a PILAR Framework expert. Answer the user's question about the PILAR framework.
-
-${pillar_id && mode ? `Focus on the ${pillar_id} pillar in ${mode} mode.` : 'Provide general PILAR framework guidance.'}
-
-If this is assessment-related, provide actionable insights.
-If this is theoretical, explain concepts clearly.
-Always tie answers back to PILAR theory.`;
-
-      const messages: Message[] = [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: query }
-      ];
-
-      const metadata: TraceMetadata = {
-        userId: user.id,
-        pillar: pillar_id,
-        mode,
-        feature: 'rag_query'
-      };
-
-      const response = await traceChat(
-        () => llmService.chat(messages, { temperature: 0.3, maxTokens: 1024 }, metadata),
-        messages,
-        metadata
-      );
-
-      // Parse response for structured output
-      const responseData = {
-        response: response.content,
-        sources: [], // TODO: Implement actual source tracking
-        related_pillars: pillar_id ? [pillar_id] : []
-      };
-
-      return c.json(createApiResponse(responseData));
-    } catch (error: any) {
-      return c.json(createApiResponse(null, {
-        code: 'AI_SERVICE_ERROR',
-        message: error.message
-      }), 500);
-    }
-  }
-);
-
-/**
- * POST /api/v1/ai/assessment/guidance
- * Generate assessment guidance
- */
-ai.post('/assessment/guidance',
-  requireAuth,
-  rateLimitAI,
-  validateBody(assessmentGuidanceRequestSchema),
-  async (c) => {
-    const user = c.get('user');
-    const { assessment_id, user_profile, conversation_history } = c.get('validatedBody');
+    const { assessment_id, conversation_history } = c.get('validatedBody');
 
     try {
       // Get assessment data from database
@@ -176,7 +83,7 @@ ai.post('/assessment/guidance',
  * POST /api/v1/ai/content/analyze
  * Analyze content for PILAR alignment
  */
-ai.post('/content/analyze',
+ai.post('/analyze-content',
   requireAuth,
   rateLimitAI,
   validateBody(contentAnalysisRequestSchema),
@@ -219,21 +126,145 @@ Format your response as JSON:
         metadata
       );
 
-      // Parse JSON response
+       // Parse JSON response
       let analysis;
       try {
         const jsonMatch = response.content.match(/```json\n([\s\S]*?)\n```/) ||
                           response.content.match(/\{[\s\S]*?\}/);
         const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : response.content;
         analysis = JSON.parse(jsonStr);
-      } catch (error) {
+      } catch {
         return c.json(createApiResponse(null, {
           code: 'PARSE_ERROR',
           message: 'Failed to parse analysis response'
         }), 500);
       }
 
-      return c.json(createApiResponse(analysis));
+       return c.json(createApiResponse(analysis));
+     } catch (error: any) {
+       return c.json(createApiResponse(null, {
+         code: 'AI_SERVICE_ERROR',
+         message: error.message
+       }), 500);
+     }
+   }
+ );
+
+/**
+ * POST /api/v1/ai/chat
+ * Chatbot conversation (streaming)
+ */
+ai.post('/chat',
+  requireAuth,
+  rateLimitAI,
+  validateBody(coachConversationRequestSchema),
+  async (c) => {
+    const user = c.get('user');
+    const { message, context, conversation_id } = c.get('validatedBody');
+
+    return stream(c, async (streamWriter) => {
+      try {
+        const chatContext = {
+          userId: user.id,
+          assessmentId: context?.assessment_id,
+          pillar: context?.pillar_id,
+          mode: context?.mode,
+          conversationId: conversation_id,
+          history: []
+        };
+
+        const generator = coachingService.getChatbotResponse(message, chatContext);
+
+        for await (const chunk of generator) {
+          await streamWriter.write(chunk);
+        }
+      } catch (error: any) {
+        await streamWriter.write(`\n\nError: ${error.message}`);
+      }
+    });
+  }
+);
+
+/**
+ * POST /api/v1/ai/guidance
+ * Get contextual guidance (non-streaming)
+ */
+ai.post('/guidance',
+  requireAuth,
+  rateLimitAI,
+  validateBody(assessmentGuidanceRequestSchema),
+  async (c) => {
+    const user = c.get('user');
+    const { assessment_id, conversation_history } = c.get('validatedBody');
+
+    try {
+      // Get assessment data from database
+      const { data: assessment } = await supabase
+        .from('pilar_assessments')
+        .select('*')
+        .eq('id', assessment_id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (!assessment) {
+        return c.json(createApiResponse(null, {
+          code: 'NOT_FOUND',
+          message: 'Assessment not found'
+        }), 404);
+      }
+
+      const guidance = await coachingService.getGuidance(
+        user.id,
+        assessment.pillar_id,
+        assessment.mode
+      );
+
+      const responseData = {
+        guidance,
+        assessment_data: assessment,
+        conversation_context: conversation_history || []
+      };
+
+      return c.json(createApiResponse(responseData));
+    } catch (error: any) {
+      return c.json(createApiResponse(null, {
+        code: 'AI_SERVICE_ERROR',
+        message: error.message
+      }), 500);
+    }
+  }
+);
+
+/**
+ * POST /api/v1/ai/quiz-questions
+ * Generate quiz questions for assessment
+ */
+ai.post('/quiz-questions',
+  requireAuth,
+  rateLimitAI,
+  validateBody(generateQuestionsRequestSchema),
+  async (c) => {
+    const { pillar_id, mode, difficulty, count } = c.get('validatedBody');
+
+    try {
+      const questions = await assessmentService.generateQuizQuestions(
+        pillar_id,
+        mode,
+        count || 10
+      );
+
+      const responseData = {
+        questions: questions.map(q => ({
+          id: q.id,
+          question: q.question,
+          type: q.question_type,
+          options: q.options,
+          pillar_force: q.force_id,
+          difficulty: difficulty || 'medium'
+        }))
+      };
+
+      return c.json(createApiResponse(responseData));
     } catch (error: any) {
       return c.json(createApiResponse(null, {
         code: 'AI_SERVICE_ERROR',

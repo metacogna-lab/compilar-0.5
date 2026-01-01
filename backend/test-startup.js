@@ -68,7 +68,7 @@ async function startTestServer() {
   };
 
   // Start the server using Bun
-  serverProcess = spawn('bun', ['run', 'index.ts'], {
+  serverProcess = spawn('bun', ['run', '--hot', 'src/index.ts'], {
     cwd: __dirname,
     env,
     stdio: ['inherit', 'inherit', 'inherit'],
@@ -135,6 +135,4 @@ process.on('unhandledRejection', (reason, promise) => {
 startTestServer().catch((error) => {
   console.error('❌ Failed to start test server:', error);
   process.exit(1);
-});</content>
-</xai:function_call name="write">
-<parameter name="filePath">backend/package.json
+});

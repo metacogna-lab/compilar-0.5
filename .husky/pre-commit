@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run linting
+bun run lint
+
+# Check for Base44 usage
+echo "🔍 Checking for Base44 usage..."
+bun run migrate:check
+
+# Run tests
+bun run test

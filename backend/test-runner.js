@@ -180,6 +180,4 @@ process.on('unhandledRejection', (reason) => {
 runTests().catch((error) => {
   log(`Test runner failed: ${error.message}`, true);
   process.exit(1);
-});</content>
-</xai:function_call name="edit">
-<parameter name="filePath">backend/package.json
+});

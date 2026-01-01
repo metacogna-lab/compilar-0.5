@@ -929,4 +929,106 @@ export const monitorContractCompliance = () => {
 };
 ```
 
+## Tracing and Monitoring Contracts
+
+### Langsmith Tracing Integration
+
+All AI endpoints include comprehensive Langsmith tracing for observability and performance monitoring.
+
+#### Trace Metadata Contract
+
+**Standard Trace Metadata:**
+```typescript
+interface TraceMetadata {
+  userId?: string;              // User identifier
+  sessionId?: string;           // Session tracking
+  feature: string;              // Feature type (assessment_coaching, chatbot, etc.)
+  pillar?: string;              // Assessment pillar (if applicable)
+  mode?: 'egalitarian' | 'hierarchical';  // Assessment mode
+  conversationId?: string;      // Chat conversation tracking
+  assessmentId?: string;        // Assessment identifier
+  [key: string]: any;           // Additional context
+}
+
+const traceMetadataSchema = z.object({
+  userId: z.string().uuid().optional(),
+  sessionId: z.string().optional(),
+  feature: z.string(),
+  pillar: z.string().optional(),
+  mode: z.enum(['egalitarian', 'hierarchical']).optional(),
+  conversationId: z.string().optional(),
+  assessmentId: z.string().uuid().optional()
+}).catchall(z.any());
+```
+
+#### Trace Types
+
+**Chain Traces** (Service-level operations):
+- `llm_chat`: Standard chat completion
+- `llm_stream`: Streaming chat completion
+- `llm_embed_batch`: Batch embedding operations
+
+**LLM Traces** (Provider API calls):
+- `openai_chat`: OpenAI chat completion
+- `openai_embed`: OpenAI embedding
+- `anthropic_chat`: Anthropic chat completion
+
+#### Feature-Specific Metadata
+
+**Assessment Coaching:**
+```typescript
+{
+  feature: 'assessment_coaching',
+  pillar: 'leadership' | 'communication' | etc.,
+  mode: 'egalitarian' | 'hierarchical',
+  assessmentId: string
+}
+```
+
+**Chatbot Conversations:**
+```typescript
+{
+  feature: 'chatbot',
+  conversationId: string,
+  messageCount: number
+}
+```
+
+**RAG Queries:**
+```typescript
+{
+  feature: 'rag_query',
+  queryLength: number,
+  resultsCount: number
+}
+```
+
+### Tracing Headers
+
+**Request Headers:**
+```
+X-Trace-Id: uuid-v4-trace-identifier
+X-Parent-Trace-Id: parent-trace-reference
+```
+
+**Response Headers:**
+```
+X-Trace-Id: uuid-v4-trace-identifier
+X-Langsmith-URL: https://smith.langchain.com/.../trace-id
+```
+
+### Monitoring Integration
+
+**Performance Metrics Tracked:**
+- Response time per operation
+- Token usage (prompt + completion)
+- Error rates by provider/feature
+- User engagement patterns
+
+**Business Metrics:**
+- Feature usage distribution
+- Conversation length analytics
+- Assessment completion rates
+- Error impact on user experience
+
 This comprehensive contract documentation ensures that all API interactions are well-defined, validated, and maintainable throughout the migration from Base44 to REST endpoints.

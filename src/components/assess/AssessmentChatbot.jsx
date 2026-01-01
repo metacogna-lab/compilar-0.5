@@ -4,7 +4,7 @@ import { Send, Loader2, MessageCircle, Tag, AlertCircle } from 'lucide-react';
 import PillarForceChip from './PillarForceChip';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { base44 } from '@/api/base44Client';
+import { restClient } from '@/api/restClient';
 import { highlightPillarsInText, fuzzyMatchPilarEntities } from '@/components/utils/pilarUtils';
 import { usePilarKnowledge, formatKnowledgeContext, extractCitations } from './usePilarKnowledge';
 import SourceCitationChip from './SourceCitationChip';
@@ -43,18 +43,18 @@ export default function AssessmentChatbot({ pillar, mode, conversationHistory = 
   // Fetch user profile and assessment history for adaptive persona
   const { data: user } = useQuery({
     queryKey: ['user'],
-    queryFn: () => base44.auth.me()
+    queryFn: () => restClient.get('/api/v1/users/profile').then(res => res.profile)
   });
 
   const { data: userProfile } = useQuery({
-    queryKey: ['userProfile', user?.email],
-    queryFn: () => base44.entities.UserProfile.filter({ created_by: user.email }).then(res => res[0]),
+    queryKey: ['userProfile', user?.id],
+    queryFn: () => restClient.get('/api/v1/entities/UserProfile').then(res => res.userprofile?.[0]),
     enabled: !!user
   });
 
   const { data: assessmentSessions } = useQuery({
-    queryKey: ['assessmentSessions', user?.email],
-    queryFn: () => base44.entities.AssessmentSession.filter({ created_by: user.email }),
+    queryKey: ['assessmentSessions', user?.id],
+    queryFn: () => restClient.get('/api/v1/entities/AssessmentSession').then(res => res.assessmentsession),
     enabled: !!user
   });
 

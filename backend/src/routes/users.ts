@@ -5,7 +5,7 @@
  */
 
 import { Hono } from 'hono';
-import { supabase } from '../index';
+import { supabase } from '../config/database';
 import { requireAuth } from '../middleware/auth';
 import { rateLimitGeneral } from '../middleware/ratelimit';
 
