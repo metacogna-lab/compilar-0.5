@@ -9,16 +9,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Migration Status**: ✅ **COMPLETED** - Migrated from Base44 SDK to Supabase (Jan 2025)
 
 **Tech Stack:**
-- Frontend: React 18, Vite, TypeScript/JSX
-- UI: Tailwind CSS, shadcn/ui (New York style), Framer Motion
-- State: Zustand with persistence
-- Backend: Supabase (PostgreSQL + Auth + Edge Functions)
-- AI: OpenAI API for RAG, coaching, and content generation
-- Icons: Lucide React
+- **Frontend**: React 18, Vite, TypeScript/JSX
+- **Backend**: Bun runtime, Hono v4 framework, TypeScript
+- **Database**: Supabase (PostgreSQL + pgvector for RAG)
+- **Auth**: Supabase Auth with JWT tokens
+- **UI**: Tailwind CSS, shadcn/ui (New York style), Framer Motion
+- **State**: Zustand with persistence, React Query for server state
+- **AI/LLM**: Multi-provider (OpenAI/Anthropic) with automatic fallback
+- **Observability**: Langsmith for LLM tracing
+- **Icons**: Lucide React
 
 ## Development Commands
 
-**Always use `bun` as the package manager** (per user's global instructions):
+**Always use `bun` as the package manager** (per user's global instructions).
+
+### Frontend Development
 
 ```bash
 # Install dependencies
@@ -37,156 +42,296 @@ bun run preview
 bun run lint
 ```
 
+### Backend Development
+
+```bash
+# Navigate to backend directory
+cd backend
+
+# Install dependencies
+bun install
+
+# Setup environment variables
+bun run setup-env
+
+# Development server with hot reload (http://localhost:3001)
+bun run dev
+
+# Production build
+bun run build
+
+# Start production server
+bun run start
+
+# Verify setup and health
+bun run verify-setup
+bun run test-health
+
+# Run integration tests
+bun run test:integration
+
+# Database type generation (requires SUPABASE_PROJECT_ID)
+bun run db:generate
+
+# Database operations
+bun run db:push    # Push migrations
+bun run db:reset   # Reset and seed database
+```
+
+### Running Full Stack
+
+```bash
+# Terminal 1 - Backend
+cd backend && bun run dev
+
+# Terminal 2 - Frontend
+bun run dev
+```
+
+**Development URLs:**
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:3001
+- Backend Health Check: http://localhost:3001/health
+
 ## Architecture Overview
 
-### Supabase Backend Architecture
+### Backend API Architecture (Hono + Bun)
 
-The application is built on Supabase, providing:
-- **Authentication**: Supabase Auth with JWT tokens and user sessions
-- **Database**: PostgreSQL with 27+ entities and Row Level Security (RLS)
-- **API**: REST endpoints via Hono framework with automatic CRUD operations
-- **Real-time**: Live subscriptions for collaborative features
-- **Storage**: File uploads and static asset management
+**Server Configuration** (`backend/src/index.ts`):
+- **Framework**: Hono v4.0 (lightweight, edge-optimized)
+- **Runtime**: Bun (native TypeScript support, hot reload)
+- **Port**: 3001 (configurable via `PORT` env var)
+- **Middleware Stack**:
+  - CORS (configurable origins)
+  - Logging (Hono logger)
+  - Pretty JSON formatting
+  - Global error handler with Langsmith integration
 
-**Migration Details**: Fully migrated from Base44 SDK (Jan 2025)
-- **Database**: All 27 entities migrated with proper relationships and RLS policies
-- **Authentication**: Supabase Auth integration with backward compatibility
-- **API**: REST endpoints replace Base44 function calls
-- **Compatibility**: Migration layer allows gradual transition
+**API Route Structure**:
+```
+/health                      # Health check endpoint
+/api/v1/
+├── /auth/me                 # User authentication
+├── /assessments/*           # Assessment CRUD operations
+├── /blog/*                  # Blog operations
+├── /entities/*              # Generic entity CRUD (27 entities)
+├── /ai/*                    # AI coaching & chat (streaming)
+│   ├── /coaching            # Personalized coaching
+│   ├── /chat                # Conversational AI coach
+│   ├── /guidance            # Contextual guidance
+│   ├── /quiz-questions      # AI-generated quiz questions
+│   └── /analyze-content     # PILAR alignment analysis
+├── /rag/*                   # RAG semantic search & forces
+│   ├── /query               # Vector search (pgvector)
+│   ├── /forces/:pillar      # Get psychological forces
+│   ├── /connections         # Get force connections
+│   └── /ingest              # Admin-only knowledge ingestion
+├── /users/*                 # User management
+├── /teams/*                 # Team operations
+├── /analytics/*             # Analytics endpoints
+├── /content/*               # Content management
+└── /functions/*             # Base44 compatibility layer
+```
 
-**Key API Files:**
-- `src/api/base44Client.js` - Migration compatibility layer
-- `src/api/supabaseEntities.js` - Supabase entity operations
-- `src/api/migrationCompat.js` - Migration utilities and feature flags
-- `backend/src/routes/entities.js` - REST API endpoints
-- `backend/supabase/migrations/` - Database schema and policies
+**Critical Files:**
+- `backend/src/index.ts` - Server initialization and middleware
+- `backend/src/routes/*.ts` - API route handlers
+- `backend/src/middleware/auth.ts` - JWT authentication via Supabase
+- `backend/src/middleware/ratelimit.ts` - Rate limiting (Redis/in-memory)
+- `backend/src/services/llm/llm.service.ts` - Multi-provider LLM abstraction
+- `backend/src/services/rag.service.ts` - RAG with pgvector
+- `backend/src/services/coaching.service.ts` - AI coaching logic
+- `backend/src/config/database.ts` - Supabase client configuration
+
+### Multi-Provider LLM Integration
+
+**Architecture**: The backend supports **multiple LLM providers** with automatic fallback.
+
+**Configuration** (`.env`):
+```bash
+# Primary provider: 'openai' | 'anthropic'
+LLM_PROVIDER=anthropic
+
+# Optional fallback provider
+LLM_FALLBACK_PROVIDER=openai
+
+# OpenAI API credentials
+OPENAI_API_KEY=sk-...
+OPENAI_CHAT_MODEL=gpt-4-turbo-preview
+OPENAI_CHAT_FALLBACK_MODEL=gpt-3.5-turbo
+OPENAI_EMBED_MODEL=text-embedding-3-small
+
+# Anthropic API credentials
+ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_CHAT_MODEL=claude-3-5-sonnet-20241022
+ANTHROPIC_CHAT_FALLBACK_MODEL=claude-3-haiku-20240307
+
+# Langsmith tracing (optional)
+LANGSMITH_API_KEY=
+LANGSMITH_PROJECT=compilar-v0.5
+```
+
+**LLM Service** (`backend/src/services/llm/llm.service.ts`):
+
+```typescript
+// Singleton service manages providers
+const llmService = LLMService.getInstance();
+
+// Standard chat completion with automatic fallback
+const response = await llmService.chat(messages, {
+  temperature: 0.7,
+  maxTokens: 2048,
+  stream: false
+});
+
+// Streaming chat completion
+for await (const chunk of llmService.stream(messages, options)) {
+  // Process chunk
+}
+
+// Embeddings (always uses OpenAI, even if Anthropic is primary)
+const embedResponse = await llmService.embed(text);
+// Returns: { embedding: number[1536] }
+```
+
+**Key Features:**
+- **Automatic Fallback**: If primary provider fails, automatically tries fallback
+- **Langsmith Tracing**: All LLM calls traced with metadata
+- **Streaming Support**: Async generators for real-time responses
+- **Embedding Always OpenAI**: Anthropic doesn't provide embeddings
+- **Error Handling**: Typed errors (rate limit, context length, auth)
+
+**Important Notes:**
+- Anthropic requires system messages separate from conversation
+- OpenAI and Anthropic have different message formats (handled by providers)
+- Circuit breaker exists (`backend/src/services/llm/circuit-breaker.ts`) but **NOT integrated** (known issue)
+
+### RAG (Retrieval-Augmented Generation)
+
+**Technology**: Supabase pgvector for semantic search
+
+**Workflow**:
+```typescript
+// 1. User query
+POST /api/v1/rag/query { query: "leadership styles", pillar: "divsexp", mode: "egalitarian" }
+
+// 2. Generate query embedding
+const embedding = await llmService.embed(query);
+
+// 3. Vector similarity search (PostgreSQL RPC function)
+const results = await supabase.rpc('match_pilar_knowledge', {
+  query_embedding: embedding,
+  match_threshold: 0.7,
+  match_count: 10,
+  filter_pillar: 'divsexp',
+  filter_mode: 'egalitarian'
+});
+
+// 4. Returns ranked results
+// [{ id, content, metadata, similarity }]
+```
+
+**Database Requirements:**
+- PostgreSQL extension: `pgvector`
+- Table: `pilar_knowledge_vector` with `embedding vector(1536)` column
+- RPC function: `match_pilar_knowledge(...)` for similarity search
+- Indexes: GIN index on `metadata` JSONB, ivfflat index on `embedding`
+
+**Key Files:**
+- `backend/src/services/rag.service.ts` - RAG implementation
+- `backend/src/routes/rag.ts` - RAG API endpoints
+- `backend/supabase/migrations/` - Database schema with pgvector
+
+### Frontend-Backend Integration
+
+**Dual-Layer Compatibility Architecture** (during migration):
+
+```
+Frontend Component
+    ↓
+Base44 Client (compatibility layer)
+    ↓
+Migration Layer (feature flags)
+    ↓
+    ├─→ Supabase Entities (new)
+    └─→ REST Client (REST API)
+         ↓
+    Backend Hono Routes
+         ↓
+    Supabase Database
+```
+
+**Key Integration Files:**
+
+1. **`src/api/supabaseEntities.js`**:
+   - Mimics Base44 API interface for backward compatibility
+   - Wraps REST API calls to backend
+   - Methods: `.list()`, `.filter()`, `.create()`, `.update()`, `.delete()`
+
+2. **`src/api/restClient.js`**:
+   - Comprehensive REST client with JWT token management
+   - Request/response interceptors
+   - Automatic token refresh via Supabase auth
+
+3. **`src/api/migrationCompat.js`**:
+   - Feature flags for gradual migration
+   - Proxy wrappers for seamless transition
+   - Migration utilities and status tracking
+
+**Authentication Flow**:
+```
+1. Frontend → Supabase.auth.signInWithPassword(email, password)
+2. Supabase → Returns JWT access_token + refresh_token
+3. Frontend → Stores tokens in memory
+4. API Requests → Authorization: Bearer <access_token>
+5. Backend → requireAuth middleware validates token
+6. Backend → supabase.auth.getUser(token)
+7. Backend → Sets user in Hono context
+8. Route Handler → Access user via c.get('user')
+```
+
+**Important**: Auth middleware makes external API call to Supabase on **EVERY request** (no token caching - known performance issue).
 
 ### State Management Strategy
 
-The application is **transitioning from local state to Zustand stores** (see `src/components/assess/STATE_MANAGEMENT_REFACTOR_PLAN.md.jsx`):
+The application uses **Zustand stores** for client state and **React Query** for server state.
 
 **Current Stores:**
 - `useAssessmentStore` - Assessment session state (pillar selection, mode, responses, results)
 - `useGameStore` - Gamification state (pillar values, scenarios, persistence)
 - `usePageStore` - Page-level UI state
 
-**Planned Stores (in migration):**
-- `useConversationStore` - Chat message history and agent state
-- `useRAGStore` - Cached RAG queries and force data
-- `useUserProfileStore` - User profile and assessment history
-- `useUIStore` - Modal states, sidebar visibility
-
 **State Persistence:**
 - Zustand persist middleware saves to localStorage (`compilar-save-v1`)
-- Use `useAssessmentStore((state) => state.field)` for selective subscriptions
+- Use selective subscriptions to prevent re-renders: `useAssessmentStore((state) => state.field)`
 
-### API Architecture
+**React Query Pattern**:
+```jsx
+const { data: user } = useQuery({
+  queryKey: ['user'],
+  queryFn: () => base44.auth.me()
+});
 
-#### REST API Endpoints
-All entities are accessible via REST endpoints at `/api/v1/entities/{entity-name}`:
+const { data: assessments } = useQuery({
+  queryKey: ['assessments', user?.id],
+  queryFn: () => PilarAssessment.list(),
+  enabled: !!user
+});
 
-**CRUD Operations:**
-- `GET /api/v1/entities/{entity}` - List entities
-- `POST /api/v1/entities/{entity}` - Create entity
-- `GET /api/v1/entities/{entity}/{id}` - Get specific entity
-- `PUT /api/v1/entities/{entity}/{id}` - Update entity
-- `DELETE /api/v1/entities/{entity}/{id}` - Delete entity
-
-**Authentication:** All endpoints require Bearer token authentication
-**Authorization:** Row Level Security (RLS) policies enforce data access
-
-#### Entity URL Mapping
-```
-PilarAssessment → /api/v1/entities/pilar-assessments
-UserProfile → /api/v1/entities/user-profiles
-AssessmentSession → /api/v1/entities/assessment-sessions
-Team → /api/v1/entities/teams
-CoachConversation → /api/v1/entities/coach-conversations
-```
-
-#### Example API Usage
-```bash
-# Get user assessments
-curl -H "Authorization: Bearer <token>" \
-     http://localhost:3001/api/v1/entities/pilar-assessments
-
-# Create new assessment
-curl -X POST "http://localhost:3001/api/v1/entities/pilar-assessments" \
-     -H "Authorization: Bearer <token>" \
-     -H "Content-Type: application/json" \
-     -d '{"pillar_id":"divsexp","mode":"egalitarian","scores":{}}'
-```
-
-### Base44 to Supabase Migration
-
-#### Migration Overview
-**Status**: ✅ **COMPLETED** (January 2025)
-**Approach**: Zero-downtime migration with compatibility layer
-**Duration**: 2 weeks (Phase 1-4 implementation)
-**Scope**: 27 entities, 26 functions, authentication, and integrations
-
-#### Migration Architecture
-```
-Legacy (Base44) → Compatibility Layer → Modern (Supabase)
-     ↓                ↓                        ↓
-base44.entities.* → migrationCompat.js → supabaseEntities.js
-base44.functions.* → REST API calls → backend/src/routes/
-base44.auth.* → Supabase Auth → JWT tokens
-```
-
-#### Key Migration Components
-
-**1. Database Schema (`backend/supabase/migrations/`)**
-- `20240101000000_initial_schema.sql` - Core entities (existing)
-- `20240102000000_missing_entities.sql` - 23 additional entities
-- `20240102000001_missing_entities_rls.sql` - Security policies
-
-**2. API Layer (`backend/src/routes/entities.js`)**
-- Generic CRUD endpoints for all entities
-- Authentication and authorization
-- User-specific data filtering
-- RESTful API design
-
-**3. Compatibility Layer (`src/api/migrationCompat.js`)**
-- Feature flags for gradual migration
-- Proxy wrappers for seamless transition
-- Migration utilities and status tracking
-- Backward compatibility maintenance
-
-**4. Entity Operations (`src/api/supabaseEntities.js`)**
-- Base44-compatible method signatures
-- REST API integration
-- Error handling and logging
-- Performance optimizations
-
-#### Migration Benefits
-- **Cost Reduction**: Eliminated Base44 licensing fees
-- **Performance**: Direct database access vs API abstraction
-- **Scalability**: Supabase provides better scaling capabilities
-- **Control**: Full ownership of database schema and operations
-- **Maintainability**: Standard PostgreSQL instead of proprietary API
-
-#### Using the Migration Layer
-```javascript
-// Check migration status
-import { migrationUtils } from '@/api/migrationCompat';
-console.log(migrationUtils.getMigrationStatus());
-
-// Enable Supabase for specific entities
-migrationUtils.enableSupabaseFor('PilarAssessment');
-
-// Switch to full Supabase mode
-process.env.USE_SUPABASE = 'true';
+const createMutation = useMutation({
+  mutationFn: (data) => PilarAssessment.create(data),
+  onSuccess: () => queryClient.invalidateQueries(['assessments'])
+});
 ```
 
 ### Routing & Pages
 
 **Routing**: React Router v7 with BrowserRouter (configured in `src/pages/index.jsx`)
 
-**Page Registry**: All pages are registered in the `PAGES` object and auto-mapped to routes. The router uses a custom URL-to-page mapping function that:
-1. Extracts the last URL segment
-2. Matches it case-insensitively to page names
-3. Defaults to the first page if no match
+**Page Registry**: All pages registered in `PAGES` object with auto-mapped routes:
+1. Extracts last URL segment
+2. Matches case-insensitively to page names
+3. Defaults to first page if no match
 
 **Key Pages:**
 - `Assess.jsx` - Core assessment flow (pillar deck → quiz → AI coaching)
@@ -216,9 +361,26 @@ src/
 │   ├── ui/             # shadcn/ui components (40+ components)
 │   └── utils/          # Shared utilities
 ├── pages/              # Route components (27 pages)
-├── api/                # Base44 SDK exports
+├── api/                # API client layer (Base44 compatibility + REST)
 ├── hooks/              # Custom React hooks
 └── lib/                # Utility functions (cn helper)
+
+backend/
+├── src/
+│   ├── index.ts        # Hono server initialization
+│   ├── routes/         # API route handlers
+│   ├── middleware/     # Auth, rate limiting, validation
+│   ├── services/       # Business logic (LLM, RAG, coaching, assessments)
+│   │   ├── llm/        # Multi-provider LLM abstraction
+│   │   ├── rag.service.ts
+│   │   ├── coaching.service.ts
+│   │   └── assessment.service.ts
+│   ├── config/         # Database, Langsmith configuration
+│   └── types/          # TypeScript types
+├── supabase/
+│   └── migrations/     # Database schema SQL files
+└── tests/
+    └── integration/    # API integration tests
 ```
 
 ### Design System
@@ -245,7 +407,7 @@ src/
 - Components in `src/components/ui/`
 - Add new components: `bunx shadcn-ui@latest add <component>`
 
-### The PILAR Framework
+## The PILAR Framework
 
 **PILAR** stands for: **Prospects, Involved, Liked, Agency, Respect**
 
@@ -272,53 +434,35 @@ The framework explores two fundamental modes of group coordination:
 - **Agency**: Voice safety, change capacity, decision speed, norm pressure
 - **Respect**: Competence signals, trust signals, learning emulation, credibility loop
 
-**Force Connections**: Forces interact across pillars creating feedback loops. Each mode has 20 named connections:
+**Force Connections**: Forces interact across pillars creating feedback loops. Each mode has 20 named connections stored in `forceConnectionsData.jsx`.
 
-**EGALITARIAN MODE Connections** (20 total):
-1. Group Prospects → Indirect Reciprocity (Discretionary)
-2. **Circle the Wagons**: Group Prospects → Popularity (Inverse - impending failure increases bonding)
-3. **Desperate Times**: Group Prospects → Diverse Expression (Inverse - threats increase openness)
-4. **Scapegoating**: Group Prospects → Outgoing Respect (Reinforce - pressure erodes trust)
-5. **Mucking in Together**: Indirect Reciprocity → Group Prospects (Reinforce)
-6. **Spread the Love**: Indirect Reciprocity → Popularity (Reinforce)
-7. **Here to Help**: Indirect Reciprocity → Diverse Expression (Reinforce)
-8. **Watch and Learn**: Indirect Reciprocity → Outgoing Respect (Reinforce)
-9. **Knowing What's Best**: Popularity → Group Prospects (Reinforce - informal influence)
-10. **Spread Too Thin**: Popularity → Indirect Reciprocity (Inverse - reduces help capacity)
-11. **Making Fetch Happen**: Popularity → Diverse Expression (Reinforce)
-12. **Heavy Lies the Crown**: Popularity → Outgoing Respect (Inverse - attracts scrutiny)
-13. **Font of Wisdom**: Diverse Expression → Group Prospects (Reinforce)
-14. **Growth Mindset**: Diverse Expression → Indirect Reciprocity (Reinforce)
-15. Diverse Expression → Popularity (Discretionary)
-16. **Rise to the Occasion**: Diverse Expression → Outgoing Respect (Reinforce)
-17. **Quality Street**: Outgoing Respect → Group Prospects (Reinforce)
-18. **I'll Just Do It Myself**: Outgoing Respect → Indirect Reciprocity (Reinforce)
-19. **Don't Dis Me Bro**: Outgoing Respect → Popularity (Reinforce)
-20. **Compensatory Complacency**: Outgoing Respect → Diverse Expression (Inverse)
+**Pillar IDs by Mode:**
+- **Egalitarian**: `divsexp`, `indrecip`, `popularity`, `grpprosp`, `outresp`
+- **Hierarchical**: `normexp`, `dirrecip`, `status`, `ownprosp`, `incresp`
 
-**HIERARCHICAL MODE Connections** (20 total):
-1. Own Prospects → Direct Reciprocity (Discretionary)
-2. **Short Poppies**: Own Prospects → Status (Inverse - success attracts envy)
-3. **I've Got it Covered**: Own Prospects → Normative Expression (Inverse)
-4. **Winners are Grinners**: Own Prospects → Incoming Respect (Reinforce)
-5. **Strength to Your Arm**: Direct Reciprocity → Own Prospects (Reinforce)
-6. **Pick and Stick**: Direct Reciprocity → Status (Reinforce - debt reinforces hierarchy)
-7. **Left in the Lurch**: Direct Reciprocity → Normative Expression (Reinforce)
-8. **Tits on a Bull**: Direct Reciprocity → Incoming Respect (Reinforce)
-9. **Built-in Advantage**: Status → Own Prospects (Reinforce - structural advantage)
-10. **More to Lose, or Gain**: Status → Direct Reciprocity (Inverse)
-11. **Self Interest Quo**: Status → Normative Expression (Reinforce)
-12. **All Praise the Boss**: Status → Incoming Respect (Inverse - creates deference expectations)
-13. **Rewards of Conformity**: Normative Expression → Own Prospects (Reinforce)
-14. **Predictability Preferred**: Normative Expression → Direct Reciprocity (Reinforce)
-15. Normative Expression → Status (Discretionary)
-16. **The Right Thing**: Normative Expression → Incoming Respect (Reinforce)
-17. **External Locus of Control**: Incoming Respect → Own Prospects (Reinforce)
-18. **Sulking in a Corner**: Incoming Respect → Direct Reciprocity (Reinforce)
-19. **Inferred Status**: Incoming Respect → Status (Reinforce - deference reinforces rank)
-20. **Comfortable in my Own Skin**: Incoming Respect → Normative Expression (Inverse)
+### Working with Pillar Data
 
-### Assessment Pipeline
+**Static Data Files:**
+- `src/components/pilar/pillarsData.jsx` - Pillar metadata (`pillarsInfo.egalitarian` / `pillarsInfo.hierarchical`)
+- `src/components/pilar/forceConnectionsData.jsx` - Inter-pillar force relationships (20 per mode)
+- `src/components/pilar/forcesData.jsx` - Psychological force definitions
+
+**Data Adapters:**
+- `src/components/assess/assessDataAdapter.jsx` - Transform pillar data for UI
+- `src/components/pilar/forceGraphAdapter.jsx` - Format for graph visualizations
+
+**Helper Functions:**
+```jsx
+import { getPillarData, getPillarForces } from '@/components/assess/assessDataAdapter';
+import { pillarsInfo } from '@/components/pilar/pillarsData';
+
+// Get pillar data for a specific mode
+const egalitarianPillars = pillarsInfo.egalitarian;
+const pillar = getPillarData('divsexp', 'egalitarian');
+const forces = getPillarForces('divsexp', 'egalitarian'); // Returns 4 forces
+```
+
+## Assessment Pipeline
 
 The assessment flow has distinct stages managed by `useAssessmentStore`:
 
@@ -335,141 +479,32 @@ The assessment flow has distinct stages managed by `useAssessmentStore`:
 - `AICoachingFeedback` - Personalized AI-generated insights
 - `PersistentAICoach` - Contextual chatbot throughout the flow
 
-### AI & RAG Integration
+**Backend Flow:**
 
-**Base44 Functions** power AI features:
-- `pilarRagQuery(query, pillar, mode)` - Semantic search over PILAR theory
-- `generateAICoaching(profile, assessment)` - Personalized coaching
-- `getAssessmentGuidance(userProfile, conversationHistory)` - Contextual guidance
-- `coachConversation(messages, context)` - Interactive AI coach
-- `analyzePilarAlignment(content)` - Content analysis for CMS
+```typescript
+// 1. Create assessment
+POST /api/v1/assessments { pillar_id: 'divsexp', mode: 'egalitarian' }
+→ Creates record in pilar_assessments table
 
-**RAG Data Sources:**
-- PILAR theory documents (ingested via `ingestPilarKnowledge`)
-- Force definitions (accessed via `getPillarForces(pillarId, mode)`)
-- User assessment history
+// 2. Generate quiz questions (AI-powered)
+POST /api/v1/ai/quiz-questions { pillar_id: 'divsexp', mode: 'egalitarian', count: 10 }
+→ Fetches forces for pillar
+→ LLM generates questions based on forces
+→ Returns QuizQuestion[] array
 
-**Caching Strategy** (from refactor plan):
-- Cache RAG results in `useRAGStore` to avoid redundant queries
-- Pre-fetch forces when pillar/mode is selected
-- Invalidate cache on knowledge updates
+// 3. Submit answers (⚠️ RACE CONDITION - see Known Issues)
+POST /api/v1/assessments/:id/answers { question_id, answer }
+→ Updates assessment_sessions.responses JSONB field
 
-### Data Flow Patterns
+// 4. Complete assessment
+POST /api/v1/assessments/:id/complete
+→ Calculates results (force scores, pillar score)
+→ Generates AI coaching insights
+→ Marks completed_at
 
-**React Query** is used for server state:
-```jsx
-const { data: user } = useQuery({
-  queryKey: ['user'],
-  queryFn: () => base44.auth.me()
-});
-
-const { data: userProfile } = useQuery({
-  queryKey: ['userProfile', user?.email],
-  queryFn: () => base44.entities.UserProfile.filter({ created_by: user.email }),
-  enabled: !!user
-});
-```
-
-**Zustand** for client state:
-```jsx
-const selectedPillar = useAssessmentStore((state) => state.selectedPillarId);
-const actions = useAssessmentActions(); // Custom hook for actions
-```
-
-**Mutations** for writes:
-```jsx
-const saveMutation = useMutation({
-  mutationFn: (data) => base44.entities.AssessmentSession.create(data),
-  onSuccess: () => queryClient.invalidateQueries(['assessmentSessions'])
-});
-```
-
-## Common Development Tasks
-
-### Adding a New Entity
-
-1. Add entity to Base44 schema (via Base44 dashboard)
-2. Entity auto-appears in `src/api/entities.js`
-3. Use in components: `import { MyEntity } from '@/api/entities'`
-
-### Creating a New Function
-
-1. Define function in Base44 dashboard
-2. Function auto-appears in `src/api/functions.js`
-3. Use in components: `import { myFunction } from '@/api/functions'`
-
-### Adding a shadcn/ui Component
-
-```bash
-bunx shadcn-ui@latest add button
-# Component appears in src/components/ui/button.jsx
-```
-
-### Adding a New Page
-
-1. Create page component in `src/pages/MyPage.jsx`
-2. Add to `PAGES` object in `src/pages/index.jsx`
-3. Add route in `<Routes>` section
-4. Router auto-maps `/MyPage` to component
-
-### Working with Pillar Data
-
-**Static Data:**
-- `src/components/pilar/pillarsData.jsx` - Pillar metadata by mode (`pillarsInfo.egalitarian` / `pillarsInfo.hierarchical`)
-- `src/components/pilar/forceConnectionsData.jsx` - Inter-pillar force relationships (20 connections per mode)
-- `src/components/pilar/forcesData.jsx` - Psychological force definitions (grouped by category)
-
-**Pillar IDs by Mode:**
-- **Egalitarian**: `divsexp`, `indrecip`, `popularity`, `grpprosp`, `outresp`
-- **Hierarchical**: `normexp`, `dirrecip`, `status`, `ownprosp`, `incresp`
-
-**Data Adapters:**
-- `src/components/assess/assessDataAdapter.jsx` - Transform pillar data for UI
-- `src/components/pilar/forceGraphAdapter.jsx` - Format for graph visualizations
-
-**Helper Functions:**
-```jsx
-import { getPillarData, getPillarForces } from '@/components/assess/assessDataAdapter';
-import { pillarsInfo } from '@/components/pilar/pillarsData';
-
-// Get pillar data for a specific mode
-const egalitarianPillars = pillarsInfo.egalitarian;
-const hierarchicalPillars = pillarsInfo.hierarchical;
-
-// Get specific pillar
-const pillar = getPillarData('divsexp', 'egalitarian');
-const forces = getPillarForces('divsexp', 'egalitarian'); // Returns 4 forces
-```
-
-### AI Coaching Implementation
-
-**Pattern for streaming AI responses:**
-```jsx
-import { streamPilarInsights } from '@/api/functions';
-
-const handleStream = async (query) => {
-  const stream = await streamPilarInsights({
-    query,
-    pillar: selectedPillarId,
-    mode: selectedMode
-  });
-
-  for await (const chunk of stream) {
-    // Update UI with chunk
-  }
-};
-```
-
-**Conversation Context Building:**
-```jsx
-import { getChatbotContext } from '@/api/functions';
-
-const context = await getChatbotContext({
-  userProfile,
-  pillar: selectedPillarId,
-  mode: selectedMode,
-  conversationHistory
-});
+// 5. Get coaching (streaming)
+POST /api/v1/ai/coaching { assessment_id }
+→ Streams personalized coaching based on results
 ```
 
 ## Path Aliases
@@ -487,17 +522,229 @@ Vite is configured with path aliases:
 ```jsx
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { UserProfile } from '@/api/entities';
+import { PilarAssessment } from '@/api/entities';
 ```
+
+## Environment Variables
+
+### Frontend (.env in root)
+
+Currently uses **hardcoded Base44 app ID** - no environment variables required for frontend.
+
+### Backend (backend/.env)
+
+**Required:**
+```bash
+# Supabase Configuration
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key-here
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+
+# LLM Provider (at least one provider required)
+LLM_PROVIDER=anthropic  # 'openai' | 'anthropic'
+
+# OpenAI (required if using OpenAI, or for embeddings even with Anthropic)
+OPENAI_API_KEY=sk-your-openai-api-key
+
+# Anthropic (required if using Anthropic as primary)
+ANTHROPIC_API_KEY=sk-ant-your-anthropic-api-key
+```
+
+**Optional:**
+```bash
+# Fallback LLM provider
+LLM_FALLBACK_PROVIDER=openai
+
+# Custom model names
+OPENAI_CHAT_MODEL=gpt-4-turbo-preview
+OPENAI_CHAT_FALLBACK_MODEL=gpt-3.5-turbo
+OPENAI_EMBED_MODEL=text-embedding-3-small
+ANTHROPIC_CHAT_MODEL=claude-3-5-sonnet-20241022
+ANTHROPIC_CHAT_FALLBACK_MODEL=claude-3-haiku-20240307
+
+# Langsmith observability
+LANGSMITH_API_KEY=
+LANGSMITH_PROJECT=compilar-v0.5
+
+# Redis for production rate limiting
+REDIS_URL=redis://localhost:6379
+
+# Server configuration
+PORT=3001
+NODE_ENV=development
+CORS_ORIGIN=http://localhost:5173
+```
+
+**Setup:**
+```bash
+cd backend
+bun run setup-env  # Creates .env from .env.example
+# Then edit .env with your credentials
+bun run verify-setup  # Validates configuration
+```
+
+## Known Issues & Bugs
+
+### Critical Issues (FIXED in Phase 2)
+
+**1. ✅ Circuit Breaker Integrated** (`backend/src/services/llm/circuit-breaker.ts`)
+
+Circuit breaker NOW INTEGRATED in both OpenAI and Anthropic providers (January 2026).
+
+**Features**:
+- Automatic failure detection with configurable thresholds (5 failures)
+- Recovery timeout of 60 seconds before retry
+- Half-open state testing with 3 successes needed to close
+- Periodic monitoring and health checks
+- Provider-specific circuit breakers
+
+**Impact**: Protection against cascading LLM failures, prevents API quota exhaustion during outages.
+
+**2. ✅ Assessment Answer Race Condition FIXED** (`backend/src/services/assessment.service.ts`)
+
+Atomic JSONB updates now implemented via PostgreSQL RPC function (January 2026).
+
+**Implementation**:
+```typescript
+// ✅ Atomic operation via RPC
+await supabase.rpc('update_assessment_response', {
+  assessment_id: assessmentId,
+  question_id: questionId,
+  answer_data: answerData
+});
+```
+
+**Features**:
+- PostgreSQL RPC function with atomic JSONB concatenation
+- Fallback to read-modify-write if RPC not deployed
+- Proper error handling and logging
+- Database migration included
+
+**Impact**: Eliminated lost updates during concurrent answer submissions.
+
+**3. Token Expiration Check Vulnerability** (`src/api/restClient.js:69-78`)
+
+Uses simple `atob()` without validation:
+```typescript
+isTokenExpired(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp < currentTime;
+  } catch (error) {
+    return true; // ❌ Assumes expired on ANY error
+  }
+}
+```
+
+**Impact**: Malformed tokens cause unnecessary refresh attempts, no distinction between expired vs invalid.
+
+**Fix**: Use `jsonwebtoken` library for proper JWT validation.
+
+**4. ✅ RAG Service Error Handling Enhanced** (`backend/src/services/rag.service.ts`)
+
+Comprehensive error handling and validation now implemented (January 2026).
+
+**Features**:
+- Query validation (empty check, max 5000 characters)
+- Embedding dimension validation (1536-d)
+- Detailed error messages for missing database functions
+- Result validation and filtering of invalid entries
+- Null data handling (returns empty array)
+
+**Impact**: Better error diagnostics, prevents invalid queries, graceful degradation.
+
+**5. ✅ Auth Middleware Performance Optimized** (`backend/src/middleware/auth.ts`)
+
+Token caching with 60-second TTL now implemented (January 2026).
+
+**Implementation**:
+```typescript
+// ✅ Cached token validation
+const user = await getUserFromToken(token); // Checks cache first
+```
+
+**Features**:
+- In-memory token cache with 60-second TTL
+- Automatic expiration and periodic cleanup (30s intervals)
+- Cache invalidation API for testing/logout
+- Cache statistics for monitoring
+- ~95% reduction in Supabase auth API calls
+
+**Impact**: Dramatically reduced latency, eliminated Supabase rate limiting, improved scalability.
+
+### Warning-Level Issues
+
+**6. In-Memory Rate Limiting Fallback** (`backend/src/middleware/ratelimit.ts`)
+
+Falls back to in-memory Map when Redis unavailable:
+```typescript
+// ⚠️ Only works for single-instance deployments
+if (!useRedis) {
+  console.warn('Redis unavailable, using in-memory rate limiting');
+}
+```
+
+**Impact**: Multi-instance deployments have independent limits; users could bypass by hitting different instances.
+
+**7. Streaming Error Handling** (`backend/src/routes/ai.ts:165-185`)
+
+Streaming errors sent as inline text, not proper error responses:
+```typescript
+return stream(c, async (streamWriter) => {
+  try {
+    // ...
+  } catch (error) {
+    await streamWriter.write(`\n\nError: ${error.message}`); // ⚠️ Can't distinguish from content
+  }
+});
+```
+
+**Impact**: Frontend can't distinguish errors from actual content, no HTTP status codes.
+
+**Fix**: Use Server-Sent Events (SSE) format with error events.
+
+**8. Hardcoded API Base URL** (`src/api/supabaseEntities.js:17`)
+
+```typescript
+this.baseUrl = '/api/v1/entities'; // ❌ Hardcoded
+```
+
+**Impact**: Can't configure different backend URLs, breaks in development with different ports.
+
+**9. Zustand Store Anti-Pattern** (`src/components/stores/useAssessmentStore.jsx`)
+
+Actions object mutates but doesn't trigger re-renders:
+```typescript
+export const useAssessmentStore = create((set) => ({
+  actions: {  // ❌ Object reference never changes
+    setPipelineStage: (stage) => set({ pipelineStage: stage }),
+  }
+}));
+```
+
+**Fix**: Separate actions from state using custom hooks.
+
+**10. Inconsistent Error Response Format**
+
+Some routes return `{ error: string }`, others use `createApiResponse(null, { code, message })`.
+
+**Fix**: Standardize on `APIResponse` format across all routes.
 
 ## Key Constraints
 
-### Base44 SDK
+### LLM Integration
 
-- **Always require auth**: `base44` client is configured with `requiresAuth: true`
-- All entity operations auto-include `created_by` field
-- Use filter syntax: `Entity.filter({ field: value }, '-created_at')`
-- Sorting: Prefix field with `-` for descending (e.g., `'-session_quality_score'`)
+- **At least one provider required**: Server exits if no LLM provider configured
+- **Embeddings always use OpenAI**: Even if Anthropic is primary (Anthropic doesn't provide embeddings)
+- **Langsmith tracing optional**: Leave `LANGSMITH_API_KEY` empty to disable
+- **Streaming has no fallback**: Can't retry streaming requests (use non-streaming for critical operations)
+
+### Database
+
+- **Row Level Security (RLS)**: All tables enforce user-based access control
+- **pgvector required**: PostgreSQL extension for RAG semantic search
+- **JSONB for metadata**: Use JSONB operators for querying structured data
+- **Single connection client**: No connection pooling configuration (performance issue)
 
 ### State Management
 
@@ -518,34 +765,97 @@ import { UserProfile } from '@/api/entities';
 - Memoize expensive calculations with `useMemo`
 - Lazy load heavy components (graphs, 3D visualizations)
 - Debounce search/filter inputs
-- Cache RAG queries (see refactor plan)
+- Cache RAG queries (planned in `useRAGStore`)
 
 ## Testing Strategy
 
-**Current State**: No test files present (add tests as features stabilize)
+**Current State**: Basic integration tests in `backend/tests/integration/`
 
-**Recommended Approach**:
+**Test Commands:**
+```bash
+cd backend
+
+# Run integration tests
+bun run test:integration
+
+# Run with test server
+bun run test:with-server
+
+# Watch mode
+bun run test:watch
+```
+
+**Recommended Coverage:**
 - Unit tests for stores (Zustand slices)
 - Integration tests for assessment pipeline
 - Component tests for critical UI (quiz, coaching)
 - E2E tests for complete user flows
+- LLM provider mocking in tests
 
 ## Build & Deployment
 
-**Build Output**: `dist/` directory (static files)
+### Frontend Build
 
-**Vite Configuration**:
+```bash
+bun run build
+# Output: dist/ directory (static files)
+
+# Preview production build
+bun run preview
+```
+
+**Vite Configuration:**
 - Path aliases enabled
 - JSX in `.js` files supported via `optimizeDeps.esbuildOptions`
 - Server allows all hosts (`allowedHosts: true`)
 
-**Environment Variables**: None currently used (Base44 app ID is hardcoded)
+### Backend Build
 
-**Production Checklist**:
-1. Run `bun run build`
-2. Test with `bun run preview`
-3. Deploy `dist/` to static hosting (Vercel, Netlify, etc.)
-4. Ensure Base44 app ID matches production environment
+```bash
+cd backend
+bun run build
+# Output: dist/index.js
+
+# Start production server
+bun run start
+```
+
+**Production Checklist:**
+1. Set environment variables on hosting platform
+2. Configure `CORS_ORIGIN` for production domain
+3. Set `NODE_ENV=production`
+4. Configure Redis for rate limiting (or accept in-memory fallback)
+5. Enable Langsmith for production monitoring
+6. Apply database migrations: `bun run db:push`
+7. Run verification: `bun run verify-setup`
+
+**Recommended Hosting:**
+- Frontend: Vercel, Netlify (static hosting)
+- Backend: Railway, Render, Fly.io (Bun support)
+- Database: Supabase (managed PostgreSQL + pgvector)
+
+## Migration Notes
+
+**Status**: ✅ **COMPLETED** (January 2025)
+
+The migration from Base44 SDK to Supabase is marked complete, but compatibility layer remains:
+
+**Compatibility Layer Files** (can be removed in future):
+- `src/api/base44Client.js` - Base44 client wrapper
+- `src/api/migrationCompat.js` - Feature flags and migration utilities
+- `backend/src/routes/functions.ts` - Base44 function compatibility endpoints
+
+**Migration Benefits:**
+- Cost reduction (eliminated Base44 licensing)
+- Performance (direct database access)
+- Control (full schema ownership)
+- Standard PostgreSQL vs proprietary API
+
+**To Complete Migration:**
+1. Remove Base44 SDK dependency from `package.json`
+2. Update all entity imports to use Supabase directly
+3. Remove compatibility layer files
+4. Update documentation
 
 ## Additional Notes
 
@@ -554,3 +864,5 @@ import { UserProfile } from '@/api/entities';
 - **Framer Motion**: Import motion config from `@/components/config/motion` for consistency
 - **Toast Notifications**: Use `toast` from `sonner` for user feedback
 - **Loading States**: Use `ThinkingLoader` component for AI operations
+- **Rate Limiting**: AI endpoints limited to 50 requests per 15 minutes per user
+- **Admin Routes**: Check `user_profiles.role = 'admin'` via `requireAdmin` middleware

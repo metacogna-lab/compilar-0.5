@@ -409,10 +409,9 @@ describe('Rate Limiting', () => {
 
 describe('Error Handling', () => {
   test('Invalid JSON body returns proper error', async () => {
-    const response = await fetch(`${BASE_URL}/api/v1/assessments`, {
+    const response = await fetch(`${BASE_URL}/api/v1/rag/query`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${MOCK_AUTH_TOKEN}`,
         'Content-Type': 'application/json',
       },
       body: 'invalid json{',

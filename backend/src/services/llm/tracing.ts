@@ -6,7 +6,7 @@
 
 import { getLangsmithClient, isLangsmithEnabled, getLangsmithConfig } from '../../config/langsmith';
 import type { TraceMetadata, Message, ChatResponse, EmbedResponse } from './types';
-import { v4 as uuidv4 } from 'crypto';
+import { randomUUID } from 'node:crypto';
 
 /**
  * Trace a chat completion operation
@@ -26,7 +26,7 @@ export async function traceChat(
   }
 
   const config = getLangsmithConfig();
-  const runId = uuidv4();
+  const runId = randomUUID();
 
   try {
     // Start trace
@@ -104,7 +104,7 @@ export async function traceStream(
   }
 
   const config = getLangsmithConfig();
-  const runId = uuidv4();
+  const runId = randomUUID();
 
   // Start trace
   await client.createRun({
@@ -182,7 +182,7 @@ export async function traceEmbed(
   }
 
   const config = getLangsmithConfig();
-  const runId = uuidv4();
+  const runId = randomUUID();
 
   try {
     // Start trace
@@ -260,7 +260,7 @@ export async function trace<T>(
   }
 
   const config = getLangsmithConfig();
-  const runId = uuidv4();
+  const runId = randomUUID();
 
   try {
     // Start trace
@@ -283,7 +283,7 @@ export async function trace<T>(
 
     // End trace with success
     await client.updateRun(runId, {
-      outputs: result,
+      outputs: result as any,
       end_time: endTime,
       extra: {
         metadata: {

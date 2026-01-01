@@ -2,7 +2,6 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { prettyJSON } from 'hono/pretty-json'
-import { createClient } from '@supabase/supabase-js'
 import { assessments } from './routes/assessments'
 import { blog } from './routes/blog'
 import { entities } from './routes/entities'
@@ -12,27 +11,15 @@ import { users } from './routes/users'
 import { teams } from './routes/teams'
 import { analytics } from './routes/analytics'
 import { content } from './routes/content'
+import { functions } from './routes/functions'
 import { requireAuth } from './middleware/auth'
 import { errorHandler } from './middleware/error'
 
 // Environment variables with validation
-const SUPABASE_URL = process.env.SUPABASE_URL
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const LLM_PROVIDER = process.env.LLM_PROVIDER || 'anthropic'
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
 const LANGSMITH_API_KEY = process.env.LANGSMITH_API_KEY
-
-// Validate required environment variables
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.error('❌ Missing required Supabase environment variables:')
-  console.error('   SUPABASE_URL:', SUPABASE_URL ? '✅ Set' : '❌ Missing')
-  console.error('   SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY ? '✅ Set' : '❌ Missing')
-  console.error('   SUPABASE_SERVICE_ROLE_KEY:', SUPABASE_SERVICE_ROLE_KEY ? '✅ Set' : '⚠️  Optional')
-  console.error('\nPlease configure your .env file with Supabase credentials.')
-  process.exit(1)
-}
 
 // Validate LLM provider configuration
 if (LLM_PROVIDER === 'openai' && !OPENAI_API_KEY) {
@@ -46,16 +33,11 @@ if (LLM_PROVIDER === 'anthropic' && !ANTHROPIC_API_KEY) {
 
 // Log configuration status
 console.log('✅ Backend Configuration:')
-console.log('   Supabase URL:', SUPABASE_URL)
 console.log('   LLM Provider:', LLM_PROVIDER)
 console.log('   OpenAI API Key:', OPENAI_API_KEY ? '✅ Set' : '❌ Not set')
 console.log('   Anthropic API Key:', ANTHROPIC_API_KEY ? '✅ Set' : '❌ Not set')
 console.log('   Langsmith API Key:', LANGSMITH_API_KEY ? '✅ Set' : '⚠️  Optional')
 console.log('')
-
-// Initialize Supabase client
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-export const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY)
 
 // Initialize Hono app
 const app = new Hono()
@@ -87,6 +69,7 @@ api.route('/users', users)
 api.route('/teams', teams)
 api.route('/analytics', analytics)
 api.route('/content', content)
+api.route('/functions', functions)
 
 // Mount API routes
 app.route('/api/v1', api)

@@ -4,7 +4,7 @@
  * Unified types for multi-provider LLM integration (OpenAI + Anthropic)
  */
 
-export type LLMProviderName = 'openai' | 'anthropic';
+export type LLMProviderName = 'openai' | 'anthropic' | 'none';
 
 export type LLMTaskType = 'chat' | 'embed' | 'stream';
 
@@ -59,9 +59,11 @@ export interface EmbedResponse {
 export interface TraceMetadata {
   userId?: string;
   sessionId?: string;
-  feature: 'assessment_coaching' | 'chatbot' | 'rag_query' | 'content_analysis' | 'quiz_generation';
+  feature: 'assessment_coaching' | 'chatbot' | 'rag_query' | 'content_analysis' | 'quiz_generation' | 'assessment_creation' | 'answer_submission' | 'results_calculation' | 'assessment_completion' | 'error_handling';
   pillar?: string;
   mode?: 'egalitarian' | 'hierarchical';
+  conversationId?: string;
+  assessmentId?: string;
   [key: string]: any;
 }
 

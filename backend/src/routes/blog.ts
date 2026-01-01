@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { supabase } from '../index'
+import { supabase } from '../config/database'
 
 const blog = new Hono()
 

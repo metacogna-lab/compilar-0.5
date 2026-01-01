@@ -5,7 +5,7 @@
  */
 
 import { Hono } from 'hono';
-import { supabase } from '../index';
+import { supabase } from '../config/database';
 import { requireAuth } from '../middleware/auth';
 import { rateLimitGeneral } from '../middleware/ratelimit';
 import { createAssessmentService } from '../services/assessment.service';
@@ -89,7 +89,6 @@ assessments.get('/:id', requireAuth, async (c) => {
  * Submit an answer to a quiz question
  */
 assessments.post('/:id/answers', requireAuth, rateLimitGeneral, async (c) => {
-  const user = c.get('user');
   const assessmentId = c.req.param('id');
   const body = await c.req.json();
   const { question_id, answer } = body;
@@ -112,7 +111,6 @@ assessments.post('/:id/answers', requireAuth, rateLimitGeneral, async (c) => {
  * Complete assessment and generate final results
  */
 assessments.post('/:id/complete', requireAuth, rateLimitGeneral, async (c) => {
-  const user = c.get('user');
   const assessmentId = c.req.param('id');
 
   try {

@@ -1,35 +1,43 @@
 // Migration compatibility layer
-// Allows gradual transition from Base44 to Supabase
-// Set USE_SUPABASE=true in environment to switch to Supabase
+// Allows gradual transition from Base44 to REST API
+// Set USE_REST_API=true in environment to switch to REST API
 
-const USE_SUPABASE = process.env.USE_SUPABASE === 'true';
+const USE_REST_API = process.env.USE_REST_API === 'true';
 
-// Import both implementations
+// Import all implementations
 import * as base44Entities from './base44Client';
 import * as supabaseEntities from './supabaseEntities';
+import * as restEntities from './restEntities';
 
 // Migration status tracking
 const MIGRATION_STATUS = {
   entities: {
-    PilarAssessment: USE_SUPABASE,
-    UserProfile: USE_SUPABASE,
-    AssessmentSession: USE_SUPABASE,
-    UserProgress: USE_SUPABASE,
+    PilarAssessment: USE_REST_API ? 'rest' : 'base44',
+    UserProfile: USE_REST_API ? 'rest' : 'base44',
+    AssessmentSession: USE_REST_API ? 'rest' : 'base44',
+    UserProgress: USE_REST_API ? 'rest' : 'base44',
     // Add other entities as they are migrated
   },
   functions: {
-    // Track which functions have been migrated
-    pilarRagQuery: false,
-    generateAICoaching: false,
+    // Track which functions have been migrated to REST API
+    pilarRagQuery: USE_REST_API,
+    generateAICoaching: USE_REST_API,
+    coachConversation: USE_REST_API,
+    assessmentGuidance: USE_REST_API,
+    contentAnalysis: USE_REST_API,
     // Add other functions as they are migrated
   }
 };
 
 // Entity migration wrapper
-function createEntityWrapper(base44Entity, supabaseEntity, entityName) {
+function createEntityWrapper(base44Entity, supabaseEntity, restEntity, entityName) {
   return new Proxy(base44Entity, {
     get(target, prop) {
-      if (MIGRATION_STATUS.entities[entityName]) {
+      const status = MIGRATION_STATUS.entities[entityName];
+      if (status === 'rest') {
+        // Use REST API implementation
+        return restEntity[prop];
+      } else if (status === 'supabase') {
         // Use Supabase implementation
         return supabaseEntity[prop];
       } else {
@@ -41,9 +49,12 @@ function createEntityWrapper(base44Entity, supabaseEntity, entityName) {
 }
 
 // Function migration wrapper
-function createFunctionWrapper(base44Function, supabaseFunction, functionName) {
+function createFunctionWrapper(base44Function, supabaseFunction, restFunction, functionName) {
   return function(...args) {
-    if (MIGRATION_STATUS.functions[functionName]) {
+    const status = MIGRATION_STATUS.functions[functionName];
+    if (status === 'rest') {
+      return restFunction.apply(this, args);
+    } else if (status === 'supabase') {
       return supabaseFunction.apply(this, args);
     } else {
       return base44Function.apply(this, args);
@@ -55,24 +66,28 @@ function createFunctionWrapper(base44Function, supabaseFunction, functionName) {
 export const PilarAssessment = createEntityWrapper(
   base44Entities.PilarAssessment,
   supabaseEntities.PilarAssessment,
+  restEntities.PilarAssessment,
   'PilarAssessment'
 );
 
 export const UserProfile = createEntityWrapper(
   base44Entities.UserProfile,
   supabaseEntities.UserProfile,
+  restEntities.UserProfile,
   'UserProfile'
 );
 
 export const AssessmentSession = createEntityWrapper(
   base44Entities.AssessmentSession,
   supabaseEntities.AssessmentSession,
+  restEntities.AssessmentSession,
   'AssessmentSession'
 );
 
 export const UserProgress = createEntityWrapper(
   base44Entities.UserProgress,
   supabaseEntities.UserProgress,
+  restEntities.UserProgress,
   'UserProgress'
 );
 
@@ -111,66 +126,14 @@ export const MasteryLevel = supabaseEntities.MasteryLevel;
 export const GoalMapping = supabaseEntities.GoalMapping;
 export const CoachConversation = supabaseEntities.CoachConversation;
 
-// Auth wrapper
-export const auth = USE_SUPABASE ? supabaseEntities.auth : base44Entities.auth;
-
-// Functions wrapper
-export const functions = {
-  // Wrap each function individually
-  pilarRagQuery: createFunctionWrapper(
-    base44Entities.functions.pilarRagQuery,
-    supabaseEntities.functions.pilarRagQuery,
-    'pilarRagQuery'
-  ),
-
-  generateAICoaching: createFunctionWrapper(
-    base44Entities.functions.generateAICoaching,
-    supabaseEntities.functions.generateAICoaching,
-    'generateAICoaching'
-  ),
-
-  // Add other functions as they are implemented...
-  streamPilarInsights: base44Entities.functions.streamPilarInsights,
-  coachConversation: base44Entities.functions.coachConversation,
-  getAssessmentGuidance: base44Entities.functions.getAssessmentGuidance,
-  generateCoachQuestions: base44Entities.functions.generateCoachQuestions,
-  contentManagement: base44Entities.functions.contentManagement,
-  analyzePilarAlignment: base44Entities.functions.analyzePilarAlignment,
-  ingestKnowledge: base44Entities.functions.ingestKnowledge,
-  ragQuery: base44Entities.functions.ragQuery,
-  vectorSearch: base44Entities.functions.vectorSearch,
-  checkContentConsistency: base44Entities.functions.checkContentConsistency,
-  suggestBlogPosts: base44Entities.functions.suggestBlogPosts,
-  ingestPilarTheory: base44Entities.functions.ingestPilarTheory,
-  generateMetadata: base44Entities.functions.generateMetadata,
-  analyzeBlogPost: base44Entities.functions.analyzeBlogPost,
-  suggestTopics: base44Entities.functions.suggestTopics,
-  seedSiteContent: base44Entities.functions.seedSiteContent,
-  authenticateCompilarAdmin: base44Entities.functions.authenticateCompilarAdmin,
-  ingestPilarKnowledge: base44Entities.functions.ingestPilarKnowledge,
-  generateAssessmentQuestions: base44Entities.functions.generateAssessmentQuestions,
-  getChatbotContext: base44Entities.functions.getChatbotContext,
-  generateContextualGuidance: base44Entities.functions.generateContextualGuidance,
-  extractPillarElements: base44Entities.functions.extractPillarElements,
-  generateAssessmentEmailSummary: base44Entities.functions.generateAssessmentEmailSummary,
-  analyzeEntityUsage: base44Entities.functions.analyzeEntityUsage,
-  generateQuestionsByDifficulty: base44Entities.functions.generateQuestionsByDifficulty,
-  extractPillarsAndForces: base44Entities.functions.extractPillarsAndForces,
-  generateLearningPDF: base44Entities.functions.generateLearningPDF,
-  generateMLInsights: base44Entities.functions.generateMLInsights,
-  evaluateUserProgress: base44Entities.functions.evaluateUserProgress,
-  analyzeGoal: base44Entities.functions.analyzeGoal,
-  refineGoal: base44Entities.functions.refineGoal,
-  llmCache: base44Entities.functions.llmCache,
-  langfuseClient: base44Entities.functions.langfuseClient,
-  enhanceGoalPilar: base44Entities.functions.enhanceGoalPilar,
-};
+// Auth wrapper with REST API support
+export const auth = USE_REST_API ? restEntities.auth : (USE_SUPABASE ? supabaseEntities.auth : base44Entities.auth);
 
 // Integrations wrapper
-export const integrations = USE_SUPABASE ? supabaseEntities.integrations : base44Entities.integrations;
+export const integrations = USE_REST_API ? restEntities.integrations : (USE_SUPABASE ? supabaseEntities.integrations : base44Entities.integrations);
 
 // Agents wrapper
-export const agents = USE_SUPABASE ? supabaseEntities.agents : base44Entities.agents;
+export const agents = USE_REST_API ? restEntities.agents : (USE_SUPABASE ? supabaseEntities.agents : base44Entities.agents);
 
 // Migration utilities
 export const migrationUtils = {
@@ -195,16 +158,22 @@ export const migrationUtils = {
     }
   },
 
+  // Check if using REST API globally
+  isUsingRestApi() {
+    return USE_REST_API;
+  },
+
   // Check if using Supabase globally
   isUsingSupabase() {
-    return USE_SUPABASE;
+    return USE_SUPABASE && !USE_REST_API;
   },
 
   // Get current backend
   getCurrentBackend() {
-    return USE_SUPABASE ? 'supabase' : 'base44';
+    if (USE_REST_API) return 'rest';
+    if (USE_SUPABASE) return 'supabase';
+    return 'base44';
   }
 };
 
-// Export migration utilities
-export { migrationUtils };
+// Migration utilities are already exported above

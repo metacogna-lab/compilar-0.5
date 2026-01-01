@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, XCircle, ArrowRight, Loader2, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { base44 } from '@/api/base44Client';
+import { restClient } from '@/api/restClient';
 import { toast } from 'sonner';
 
 export default function PillarQuiz({ pillar, mode, userProfile, onComplete }) {
@@ -35,20 +35,22 @@ export default function PillarQuiz({ pillar, mode, userProfile, onComplete }) {
 
       setIsLoadingQuestions(true);
       try {
-        const response = await base44.functions.invoke('generateQuestionsByDifficulty', {
-          pillar,
+        const response = await restClient.post('/api/v1/ai/quiz-questions', {
+          pillar_id: pillar,
           mode,
           difficulty: currentDifficulty,
-          userProfile,
-          previousPerformance: responses.length > 0 ? {
-            correctCount: responses.filter(r => r.is_correct).length,
-            totalCount: responses.length
-          } : null,
-          count: 3
+          count: 3,
+          user_context: {
+            userProfile,
+            previousPerformance: responses.length > 0 ? {
+              correctCount: responses.filter(r => r.is_correct).length,
+              totalCount: responses.length
+            } : null
+          }
         });
 
-        if (response.data?.questions) {
-          setQuestions(prev => [...prev, ...response.data.questions]);
+        if (response.questions) {
+          setQuestions(prev => [...prev, ...response.questions]);
         }
       } catch (error) {
         console.error('Error fetching questions:', error);

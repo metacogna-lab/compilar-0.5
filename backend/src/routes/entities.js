@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
-import { supabase } from '../index'
+import { supabase } from '../config/database'
+import { requireAuth } from '../middleware/auth'
 
 const entities = new Hono()
 
@@ -8,18 +9,8 @@ function createEntityRoutes(entityName, tableName) {
   const entityRoutes = new Hono()
 
   // GET /api/v1/entities/:entity - List entities
-  entityRoutes.get('/', async (c) => {
-    const authHeader = c.req.header('Authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return c.json({ error: 'No authorization header' }, 401)
-    }
-
-    const token = authHeader.substring(7)
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-
-    if (authError || !user) {
-      return c.json({ error: 'Invalid token' }, 401)
-    }
+  entityRoutes.get('/', requireAuth, async (c) => {
+    const user = c.get('user')
 
     // Build query with filters
     let query = supabase.from(tableName).select('*')
@@ -49,18 +40,8 @@ function createEntityRoutes(entityName, tableName) {
   })
 
   // POST /api/v1/entities/:entity - Create entity
-  entityRoutes.post('/', async (c) => {
-    const authHeader = c.req.header('Authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return c.json({ error: 'No authorization header' }, 401)
-    }
-
-    const token = authHeader.substring(7)
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-
-    if (authError || !user) {
-      return c.json({ error: 'Invalid token' }, 401)
-    }
+  entityRoutes.post('/', requireAuth, async (c) => {
+    const user = c.get('user')
 
     const body = await c.req.json()
 
@@ -92,18 +73,8 @@ function createEntityRoutes(entityName, tableName) {
   })
 
   // GET /api/v1/entities/:entity/:id - Get specific entity
-  entityRoutes.get('/:id', async (c) => {
-    const authHeader = c.req.header('Authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return c.json({ error: 'No authorization header' }, 401)
-    }
-
-    const token = authHeader.substring(7)
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-
-    if (authError || !user) {
-      return c.json({ error: 'Invalid token' }, 401)
-    }
+  entityRoutes.get('/:id', requireAuth, async (c) => {
+    const user = c.get('user')
 
     const id = c.req.param('id')
     let query = supabase.from(tableName).select('*').eq('id', id)
@@ -135,18 +106,8 @@ function createEntityRoutes(entityName, tableName) {
   })
 
   // PUT /api/v1/entities/:entity/:id - Update entity
-  entityRoutes.put('/:id', async (c) => {
-    const authHeader = c.req.header('Authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return c.json({ error: 'No authorization header' }, 401)
-    }
-
-    const token = authHeader.substring(7)
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-
-    if (authError || !user) {
-      return c.json({ error: 'Invalid token' }, 401)
-    }
+  entityRoutes.put('/:id', requireAuth, async (c) => {
+    const user = c.get('user')
 
     const id = c.req.param('id')
     const body = await c.req.json()
@@ -180,18 +141,8 @@ function createEntityRoutes(entityName, tableName) {
   })
 
   // DELETE /api/v1/entities/:entity/:id - Delete entity
-  entityRoutes.delete('/:id', async (c) => {
-    const authHeader = c.req.header('Authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return c.json({ error: 'No authorization header' }, 401)
-    }
-
-    const token = authHeader.substring(7)
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-
-    if (authError || !user) {
-      return c.json({ error: 'Invalid token' }, 401)
-    }
+  entityRoutes.delete('/:id', requireAuth, async (c) => {
+    const user = c.get('user')
 
     const id = c.req.param('id')
     let query = supabase.from(tableName).delete().eq('id', id)

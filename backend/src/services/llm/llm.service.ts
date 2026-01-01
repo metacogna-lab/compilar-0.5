@@ -5,6 +5,7 @@
  * Supports provider switching and automatic fallback
  */
 
+import { traceable } from 'langsmith/traceable';
 import type {
   LLMProvider,
   LLMProviderName,
@@ -105,28 +106,34 @@ export class LLMService {
   /**
    * Standard chat completion with automatic fallback
    */
-  async chat(
-    messages: Message[],
-    options?: ChatOptions,
-    metadata?: TraceMetadata
-  ): Promise<ChatResponse> {
-    try {
-      const provider = this.getProvider();
-      return await provider.chat(messages, options, metadata);
-    } catch (error) {
-      // Try fallback if primary fails
-      if (this.fallbackProvider && error instanceof LLMError) {
-        console.warn(`Primary provider failed, attempting fallback: ${error.message}`);
-        try {
-          return await this.fallbackProvider.chat(messages, options, metadata);
-        } catch (fallbackError) {
-          console.error('Fallback provider also failed:', fallbackError);
-          throw fallbackError;
+  chat = traceable(
+    async (
+      messages: Message[],
+      options?: ChatOptions,
+      metadata?: TraceMetadata
+    ): Promise<ChatResponse> => {
+      try {
+        const provider = this.getProvider();
+        return await provider.chat(messages, options, metadata);
+      } catch (error) {
+        // Try fallback if primary fails
+        if (this.fallbackProvider && error instanceof LLMError) {
+          console.warn(`Primary provider failed, attempting fallback: ${error.message}`);
+          try {
+            return await this.fallbackProvider.chat(messages, options, metadata);
+          } catch (fallbackError) {
+            console.error('Fallback provider also failed:', fallbackError);
+            throw fallbackError;
+          }
         }
+        throw error;
       }
-      throw error;
+    },
+    {
+      name: "llm_chat",
+      run_type: "chain"
     }
-  }
+  );
 
   /**
    * Streaming chat completion
@@ -143,27 +150,63 @@ export class LLMService {
   /**
    * Generate embeddings (always uses OpenAI)
    */
-  async embed(
-    text: string,
-    options?: EmbedOptions,
-    metadata?: TraceMetadata
-  ): Promise<EmbedResponse> {
-    const provider = this.getEmbedProvider();
-    return await provider.embed(text, options, metadata);
-  }
+  embed = traceable(
+    async (
+      text: string,
+      options?: EmbedOptions,
+      metadata?: TraceMetadata
+    ): Promise<EmbedResponse> => {
+      const provider = this.getEmbedProvider();
+      return await provider.embed(text, options, metadata);
+    },
+    {
+      name: "llm_embed",
+      run_type: "llm"
+    }
+  );
 
   /**
    * Batch embed multiple texts
    */
-  async embedBatch(
-    texts: string[],
-    options?: EmbedOptions,
-    metadata?: TraceMetadata
-  ): Promise<EmbedResponse[]> {
-    const provider = this.getEmbedProvider();
-    return await Promise.all(
-      texts.map(text => provider.embed(text, options, metadata))
-    );
+  embedBatch = traceable(
+    async (
+      texts: string[],
+      options?: EmbedOptions,
+      metadata?: TraceMetadata
+    ): Promise<EmbedResponse[]> => {
+      const provider = this.getEmbedProvider();
+      return await Promise.all(
+        texts.map(text => provider.embed(text, options, metadata))
+      );
+    },
+    {
+      name: "llm_embed_batch",
+      run_type: "chain"
+    }
+  );
+
+  /**
+   * Create enhanced trace metadata for Langsmith
+   */
+  private createTraceMetadata(
+    metadata?: TraceMetadata,
+    provider?: string,
+    task?: string
+  ): Record<string, any> {
+    return {
+      user_id: metadata?.userId,
+      session_id: metadata?.sessionId,
+      feature: metadata?.feature || 'unknown',
+      pillar: metadata?.pillar,
+      mode: metadata?.mode,
+      conversation_id: metadata?.conversationId,
+      assessment_id: metadata?.assessmentId,
+      provider,
+      task,
+      timestamp: new Date().toISOString(),
+      // Add any additional metadata from the original metadata
+      ...metadata
+    };
   }
 
   /**

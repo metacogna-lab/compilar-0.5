@@ -193,6 +193,10 @@ Return ONLY a JSON array of questions in this format:
 
   /**
    * Submit an answer to a quiz question
+   * Uses atomic JSONB update to prevent race conditions
+   *
+   * Note: This uses RPC for atomic updates. Alternative is optimistic locking
+   * with a version field, but RPC is simpler for JSONB updates.
    */
   async submitAnswer(
     assessmentId: string,
@@ -202,33 +206,64 @@ Return ONLY a JSON array of questions in this format:
     await trace(
       'submit_answer',
       async () => {
-        // Get current assessment
-        const { data: assessment, error: fetchError } = await this.supabase
-          .from('assessment_sessions')
-          .select('*')
-          .eq('id', assessmentId)
-          .single();
-
-        if (fetchError || !assessment) {
-          throw new Error('Assessment not found');
-        }
-
-        // Update responses
-        const updatedResponses = {
-          ...assessment.responses,
-          [questionId]: {
-            answer,
-            timestamp: new Date().toISOString()
-          }
+        const answerData = {
+          answer,
+          timestamp: new Date().toISOString()
         };
 
+        // Use RPC function for atomic JSONB update
+        // This function should be created in Supabase:
+        // CREATE OR REPLACE FUNCTION update_assessment_response(
+        //   assessment_id UUID,
+        //   question_id TEXT,
+        //   answer_data JSONB
+        // ) RETURNS VOID AS $$
+        // BEGIN
+        //   UPDATE assessment_sessions
+        //   SET responses = COALESCE(responses, '{}'::jsonb) ||
+        //       jsonb_build_object(question_id, answer_data)
+        //   WHERE id = assessment_id;
+        // END;
+        // $$ LANGUAGE plpgsql;
+
         const { error: updateError } = await this.supabase
-          .from('assessment_sessions')
-          .update({ responses: updatedResponses })
-          .eq('id', assessmentId);
+          .rpc('update_assessment_response', {
+            assessment_id: assessmentId,
+            question_id: questionId,
+            answer_data: answerData
+          });
 
         if (updateError) {
-          throw new Error(`Failed to submit answer: ${updateError.message}`);
+          // Fallback to read-modify-write if RPC doesn't exist (backward compatibility)
+          if (updateError.message?.includes('function') && updateError.message?.includes('does not exist')) {
+            console.warn('RPC function update_assessment_response not found, using fallback (non-atomic)');
+
+            const { data: assessment, error: fetchError } = await this.supabase
+              .from('assessment_sessions')
+              .select('responses')
+              .eq('id', assessmentId)
+              .single();
+
+            if (fetchError || !assessment) {
+              throw new Error('Assessment not found');
+            }
+
+            const updatedResponses = {
+              ...(assessment.responses || {}),
+              [questionId]: answerData
+            };
+
+            const { error: fallbackError } = await this.supabase
+              .from('assessment_sessions')
+              .update({ responses: updatedResponses })
+              .eq('id', assessmentId);
+
+            if (fallbackError) {
+              throw new Error(`Failed to submit answer: ${fallbackError.message}`);
+            }
+          } else {
+            throw new Error(`Failed to submit answer: ${updateError.message}`);
+          }
         }
       },
       { assessmentId, questionId },

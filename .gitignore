@@ -3,7 +3,7 @@
 .env.production
 setup-env.js
 
-docs/
+# docs/  # Uncommented to track migration documentation
 supabase/
 
 # Logs
