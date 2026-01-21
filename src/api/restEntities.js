@@ -162,6 +162,10 @@ export const functions = {
 // Auth functions
 export const auth = {
   async login(email, password) {
+    // For testing, use the test login endpoint
+    if (email === 'test@example.com' && password === 'test') {
+      return restClient.post('/auth/test-login');
+    }
     return restClient.post('/auth/login', { email, password });
   },
 

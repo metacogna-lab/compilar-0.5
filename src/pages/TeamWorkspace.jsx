@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { base44 } from '@/api/base44Client';
+import { useRestApi } from '@/hooks/useRestApi';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -20,20 +20,15 @@ export default function TeamWorkspace() {
   const teamId = urlParams.get('id');
   const [noteContent, setNoteContent] = useState('');
   const queryClient = useQueryClient();
+  const { get, put, user: currentUser } = useRestApi();
 
-  const { data: team, isLoading } = useQuery({
+  const { data: teamResponse, isLoading } = useQuery({
     queryKey: ['team', teamId],
-    queryFn: async () => {
-      const teams = await base44.entities.Team.list();
-      return teams.find(t => t.id === teamId);
-    },
+    queryFn: () => get(`/teams/${teamId}`),
     enabled: !!teamId,
   });
 
-  const { data: currentUser } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: () => base44.auth.me(),
-  });
+  const team = teamResponse?.team;
 
   const addNoteMutation = useMutation({
     mutationFn: async (content) => {
@@ -52,7 +47,7 @@ export default function TeamWorkspace() {
         notes: [...existingNotes, newNote]
       };
 
-      return base44.entities.Team.update(teamId, { shared_workspace: updatedWorkspace });
+      return put(`/teams/${teamId}`, { shared_workspace: updatedWorkspace });
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['team', teamId]);
@@ -108,12 +103,12 @@ export default function TeamWorkspace() {
             </Link>
           </div>
 
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">{team.team_name}</h1>
-            {team.description && (
-              <p className="text-zinc-400">{team.description}</p>
-            )}
-          </div>
+           <div>
+             <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">{team.name}</h1>
+             {team.description && (
+               <p className="text-zinc-400">{team.description}</p>
+             )}
+           </div>
         </div>
       </div>
 

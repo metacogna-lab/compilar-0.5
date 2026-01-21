@@ -8,6 +8,11 @@ import { Hono } from 'hono';
 import { supabase } from '../config/database';
 import { requireAuth } from '../middleware/auth';
 import { rateLimitGeneral } from '../middleware/ratelimit';
+import { validateBody, validateQuery } from '../middleware/validation';
+import {
+  updateUserProfileRequestSchema,
+  paginationQuerySchema
+} from '@compilar/shared/schemas';
 
 const users = new Hono();
 
@@ -45,26 +50,11 @@ users.get('/profile', requireAuth, async (c) => {
  * PUT /api/v1/users/profile
  * Update current user's profile
  */
-users.put('/profile', requireAuth, rateLimitGeneral, async (c) => {
+users.put('/profile', requireAuth, rateLimitGeneral, validateBody(updateUserProfileRequestSchema), async (c) => {
   const user = c.get('user');
-  const body = await c.req.json();
+  const body = c.get('validatedBody'); // ✅ Use validated body
 
-  // Allowed profile fields for update
-  const allowedFields = [
-    'display_name',
-    'avatar_url',
-    'bio',
-    'preferred_mode',
-    'preferences',
-    'metadata'
-  ];
-
-  const updates: Record<string, any> = {};
-  for (const field of allowedFields) {
-    if (field in body) {
-      updates[field] = body[field];
-    }
-  }
+  const updates = { ...body }; // All fields are already validated
 
   if (Object.keys(updates).length === 0) {
     return c.json({ error: 'No valid fields to update' }, 400);
@@ -110,10 +100,12 @@ users.put('/profile', requireAuth, rateLimitGeneral, async (c) => {
  * GET /api/v1/users/history
  * Get user's assessment history with pagination
  */
-users.get('/history', requireAuth, async (c) => {
+users.get('/history', requireAuth, validateQuery(paginationQuerySchema), async (c) => {
   const user = c.get('user');
-  const limit = parseInt(c.req.query('limit') || '20', 10);
-  const offset = parseInt(c.req.query('offset') || '0', 10);
+  const query = c.get('validatedQuery'); // ✅ Use validated query
+  const limit = query.limit || 20;
+  const page = query.page || 1;
+  const offset = (page - 1) * limit;
 
   // Get assessments
   const { data: assessments, error: assessmentError } = await supabase

@@ -81,7 +81,7 @@ bun run prepare  # Installs husky hooks
 
 ### 5. Migration Dashboard UI
 
-**Location:** `src/components/migration/MigrationDashboard.tsx`
+**Location:** `src/components/migration/MigrationDashboard.jsx`
 
 **Features:**
 - **Statistics Overview** - Total, migrated, in-progress, pending features

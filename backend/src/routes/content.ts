@@ -1,6 +1,6 @@
 /**
  * Content Routes
- *
+ * 
  * API endpoints for CMS content management
  */
 
@@ -8,6 +8,14 @@ import { Hono } from 'hono';
 import { supabase } from '../config/database';
 import { optionalAuth, requireAuth, requireAdmin } from '../middleware/auth';
 import { rateLimitGeneral } from '../middleware/ratelimit';
+import { validateQuery, validateBody, createApiResponse } from '../middleware/validation';
+import {
+  contentQuerySchema,
+  createContentRequestSchema,
+  contentResponseSchema,
+  updateContentRequestSchema,
+  contentListResponseSchema
+} from '@compilar/shared/schemas';
 
 const content = new Hono();
 
@@ -16,7 +24,7 @@ const content = new Hono();
  * List CMS content with optional filters
  * Query params: pillar, mode, content_type, status, limit, offset
  */
-content.get('/', optionalAuth, async (c) => {
+content.get('/', optionalAuth, validateQuery(contentQuerySchema), async (c) => {
   const pillar = c.req.query('pillar');
   const mode = c.req.query('mode');
   const contentType = c.req.query('content_type');
@@ -49,7 +57,7 @@ content.get('/', optionalAuth, async (c) => {
     return c.json({ error: error.message }, 500);
   }
 
-  return c.json({
+  const response = {
     content: data,
     pagination: {
       total: count || 0,
@@ -57,16 +65,18 @@ content.get('/', optionalAuth, async (c) => {
       offset,
       hasMore: (offset + limit) < (count || 0)
     }
-  });
+  };
+
+  return createApiResponse(c, response, contentListResponseSchema);
 });
 
 /**
  * POST /api/v1/content
  * Create new CMS content (admin only)
  */
-content.post('/', requireAuth, requireAdmin, rateLimitGeneral, async (c) => {
+content.post('/', requireAuth, requireAdmin, rateLimitGeneral, validateBody(createContentRequestSchema), async (c) => {
   const user = c.get('user');
-  const body = await c.req.json();
+  const body = c.get('validatedBody'); // ✅ Use validated body
   const {
     title,
     content: contentBody,
@@ -77,10 +87,6 @@ content.post('/', requireAuth, requireAdmin, rateLimitGeneral, async (c) => {
     metadata,
     status = 'draft'
   } = body;
-
-  if (!title || !contentBody || !content_type) {
-    return c.json({ error: 'title, content, and content_type are required' }, 400);
-  }
 
   const { data, error } = await supabase
     .from('cms_content')
@@ -102,7 +108,7 @@ content.post('/', requireAuth, requireAdmin, rateLimitGeneral, async (c) => {
     return c.json({ error: error.message }, 500);
   }
 
-  return c.json({ content: data }, 201);
+  return createApiResponse(c, { content: data }, contentResponseSchema, 201);
 });
 
 /**
@@ -142,16 +148,16 @@ content.get('/:id', optionalAuth, async (c) => {
     return c.json({ error: error.message }, 500);
   }
 
-  return c.json({ content: data });
+  return createApiResponse(c, { content: data }, contentResponseSchema);
 });
 
 /**
  * PUT /api/v1/content/:id
  * Update content (admin only)
  */
-content.put('/:id', requireAuth, requireAdmin, rateLimitGeneral, async (c) => {
+content.put('/:id', requireAuth, requireAdmin, rateLimitGeneral, validateBody(updateContentRequestSchema), async (c) => {
   const id = c.req.param('id');
-  const body = await c.req.json();
+  const body = c.get('validatedBody'); // ✅ Use validated body
 
   // Allowed update fields
   const allowedFields = [
@@ -172,9 +178,9 @@ content.put('/:id', requireAuth, requireAdmin, rateLimitGeneral, async (c) => {
     }
   }
 
-  if (Object.keys(updates).length === 0) {
-    return c.json({ error: 'No valid fields to update' }, 400);
-  }
+   if (Object.keys(updates).length === 0) {
+     return c.json({ error: 'No valid fields to update' }, 400);
+   }
 
   const { data, error } = await supabase
     .from('cms_content')
@@ -190,7 +196,7 @@ content.put('/:id', requireAuth, requireAdmin, rateLimitGeneral, async (c) => {
     return c.json({ error: error.message }, 500);
   }
 
-  return c.json({ content: data });
+  return createApiResponse(c, { content: data }, contentResponseSchema);
 });
 
 /**
@@ -212,7 +218,7 @@ content.delete('/:id', requireAuth, requireAdmin, async (c) => {
     return c.json({ error: error.message }, 500);
   }
 
-  return c.json({ success: true, message: 'Content deleted successfully' });
+   return c.json({ success: true, message: 'Content deleted successfully' });
 });
 
 export { content };

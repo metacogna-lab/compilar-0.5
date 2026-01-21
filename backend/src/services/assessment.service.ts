@@ -74,7 +74,7 @@ export class AssessmentService {
   async createAssessment(
     userId: string,
     pillarId: string,
-    mode: string
+    mode: 'egalitarian' | 'hierarchical'
   ): Promise<Assessment> {
     return await trace(
       'create_assessment',
@@ -107,7 +107,7 @@ export class AssessmentService {
    */
   async generateQuizQuestions(
     pillar: string,
-    mode: string,
+    mode: 'egalitarian' | 'hierarchical',
     count: number = 10
   ): Promise<QuizQuestion[]> {
     return await trace(

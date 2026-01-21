@@ -8,6 +8,12 @@ import { Hono } from 'hono';
 import { supabase } from '../config/database';
 import { requireAuth } from '../middleware/auth';
 import { rateLimitGeneral } from '../middleware/ratelimit';
+import { validateBody } from '../middleware/validation';
+import {
+  createTeamRequestSchema,
+  updateTeamRequestSchema,
+  addTeamMemberRequestSchema
+} from '@compilar/shared/schemas';
 
 const teams = new Hono();
 
@@ -50,14 +56,10 @@ teams.get('/', requireAuth, async (c) => {
  * POST /api/v1/teams
  * Create a new team
  */
-teams.post('/', requireAuth, rateLimitGeneral, async (c) => {
+teams.post('/', requireAuth, rateLimitGeneral, validateBody(createTeamRequestSchema), async (c) => {
   const user = c.get('user');
-  const body = await c.req.json();
+  const body = c.get('validatedBody'); // ✅ Use validated body
   const { name, description } = body;
-
-  if (!name) {
-    return c.json({ error: 'name is required' }, 400);
-  }
 
   // Create team
   const { data: team, error: teamError } = await supabase
@@ -156,10 +158,10 @@ teams.get('/:id', requireAuth, async (c) => {
  * PUT /api/v1/teams/:id
  * Update team details (admin only)
  */
-teams.put('/:id', requireAuth, rateLimitGeneral, async (c) => {
+teams.put('/:id', requireAuth, rateLimitGeneral, validateBody(updateTeamRequestSchema), async (c) => {
   const user = c.get('user');
   const teamId = c.req.param('id');
-  const body = await c.req.json();
+  const body = c.get('validatedBody'); // ✅ Use validated body
 
   // Verify user is team admin
   const { data: membership, error: membershipError } = await supabase
@@ -173,15 +175,7 @@ teams.put('/:id', requireAuth, rateLimitGeneral, async (c) => {
     return c.json({ error: 'Admin access required' }, 403);
   }
 
-  // Allowed update fields
-  const allowedFields = ['name', 'description'];
-  const updates: Record<string, any> = {};
-
-  for (const field of allowedFields) {
-    if (field in body) {
-      updates[field] = body[field];
-    }
-  }
+  const updates = { ...body }; // All fields are already validated
 
   if (Object.keys(updates).length === 0) {
     return c.json({ error: 'No valid fields to update' }, 400);
@@ -238,19 +232,11 @@ teams.delete('/:id', requireAuth, async (c) => {
  * POST /api/v1/teams/:id/members
  * Add a member to the team (admin only)
  */
-teams.post('/:id/members', requireAuth, rateLimitGeneral, async (c) => {
+teams.post('/:id/members', requireAuth, rateLimitGeneral, validateBody(addTeamMemberRequestSchema), async (c) => {
   const user = c.get('user');
   const teamId = c.req.param('id');
-  const body = await c.req.json();
+  const body = c.get('validatedBody'); // ✅ Use validated body
   const { user_id, role = 'member' } = body;
-
-  if (!user_id) {
-    return c.json({ error: 'user_id is required' }, 400);
-  }
-
-  if (!['admin', 'member'].includes(role)) {
-    return c.json({ error: 'role must be admin or member' }, 400);
-  }
 
   // Verify requester is team admin
   const { data: membership, error: membershipError } = await supabase

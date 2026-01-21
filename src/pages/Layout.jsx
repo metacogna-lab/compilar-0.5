@@ -1,12 +1,12 @@
 
 import React from 'react';
-import { DottedSurface } from './components/ui/dotted-surface';
-import Footer from './components/Footer';
-import Header from './components/Header';
-import PillarAIInsights from './components/pilar/PillarAIInsights';
-import { usePageStore } from './components/stores/usePageStore';
-import { pillarsInfo } from './components/pilar/pillarsData';
-import KineticOutlet from './components/layout/KineticOutlet';
+import { DottedSurface } from '@/components/ui/dotted-surface';
+import Footer from '@/components/Footer';
+import Header from '@/components/Header';
+import PillarAIInsights from '@/components/pilar/PillarAIInsights';
+import { usePageStore } from '@/components/stores/usePageStore';
+import { pillarsInfo } from '@/components/pilar/pillarsData';
+import KineticOutlet from '@/components/layout/KineticOutlet';
 
 export default function Layout({ children, currentPageName }) {
   const { isAIInsightsOpen, toggleAIInsights } = usePageStore();

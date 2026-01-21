@@ -2,30 +2,27 @@
 
 ## Build/Lint/Test Commands
 
-**Frontend:**
-- `bun run dev` - Start development server
-- `bun run build` - Production build
-- `bun run lint` - Run ESLint
-
-**Backend:**
-- `bun run dev` - Start backend server
-- `bun run build` - Build backend
-- `bun run test` - Run all tests
-- `bun run test:watch` - Watch mode tests
-- `bun test <file>` - Run single test file
+**Frontend:** `vite dev`, `vite build`, `bun run lint`
+**Backend:** `bun run dev`, `bun run build`, `bun run test`, `bun run test:watch`, `bun test <file>`
+**Single Test:** `bun test tests/integration/specific-test.test.ts`
+**Integration Tests:** `bun run test:integration`
 
 ## Code Style Guidelines
 
-**Imports:** Use path aliases (`@/components`, `@/lib`, `@/api`, `@/hooks`)
-**File Extensions:** Use `.jsx` (not `.tsx`)
-**Package Manager:** Always use `bun` (never npm/yarn/pnpm)
-**State:** Zustand stores with selective subscriptions `(state) => state.field`
-**UI:** shadcn/ui components (New York style, no prefix)
-**Animations:** Import `motion` from `@/components/config/motion`
-**Error Handling:** Use try/catch with descriptive error messages
-**Naming:** camelCase for variables/functions, PascalCase for components
-**Types:** Prefer explicit typing, use TypeScript features when available
+**Imports:** Path aliases (`@/components`, `@/lib`, `@/api`, `@/hooks`) - configured in vite.config.js
+**File Extensions:** `.jsx` for React components (not `.tsx`), `.ts` for backend/services
+**Package Manager:** Always use `bun` (never npm/yarn/pnpm) - Bun auto-loads .env files
+**State Management:** Zustand with selective subscriptions `(state) => state.field`
+**UI Framework:** shadcn/ui (New York style, no prefix), Framer Motion animations
+**Error Handling:** try/catch with descriptive messages, `@typescript-eslint/no-explicit-any: warn`
+**Naming:** camelCase variables/functions, PascalCase components, argsIgnorePattern: `^_`
+**Types:** Explicit typing preferred, strict TypeScript in backend (strict: true)
+**Linting:** ESLint with React/TypeScript rules, unused vars ignored with `^_` pattern
 
 ## Cursor Rules
 
-Always use Bun instead of Node.js, npm, pnpm, or vite. Bun automatically loads .env files.
+Always use Bun instead of Node.js, npm, pnpm, or vite. Bun auto-loads .env files.
+- Use `bun <file>` instead of `node <file>`, `bun test` instead of jest/vitest
+- Prefer Bun APIs: `Bun.serve()`, `bun:sqlite`, `Bun.redis`, `Bun.sql`, `Bun.file`
+- Frontend: HTML imports with `Bun.serve()`, no Vite/express needed
+- Always use bun as the package manager. Extend the architecture to always be production ready.

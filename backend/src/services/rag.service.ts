@@ -228,7 +228,7 @@ export class RAGService {
     content: string,
     metadata: {
       pillar?: string;
-      mode?: string;
+      mode?: 'egalitarian' | 'hierarchical';
       category?: string;
       title?: string;
       [key: string]: any;
@@ -273,7 +273,7 @@ export class RAGService {
       content: string;
       metadata: {
         pillar?: string;
-        mode?: string;
+        mode?: 'egalitarian' | 'hierarchical';
         category?: string;
         title?: string;
         [key: string]: any;
@@ -340,7 +340,7 @@ export class RAGService {
    */
   async getContextualKnowledge(
     pillar: string,
-    mode: string,
+    mode: 'egalitarian' | 'hierarchical',
     force?: string
   ): Promise<{
     forces: Force[];

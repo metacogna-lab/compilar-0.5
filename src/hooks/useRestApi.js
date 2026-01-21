@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { restClient, ApiError } from '@/api/restClient';
-import { supabase } from '@/utils/supabase';
+import { supabase } from '../../utils/supabase';
 
 /**
  * Hook for making REST API requests with React state management

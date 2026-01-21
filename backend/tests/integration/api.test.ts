@@ -11,15 +11,20 @@ const BASE_URL = process.env.TEST_API_URL || 'http://localhost:3001';
 // Mock auth token (in real tests, this would be obtained from Supabase auth)
 const MOCK_AUTH_TOKEN = process.env.TEST_AUTH_TOKEN || 'mock-token-for-testing';
 
+interface ApiResponse {
+  status: number;
+  data?: any;
+}
+
 // Helper function to make authenticated requests
 async function apiRequest(
   endpoint: string,
   options: RequestInit = {},
   requireAuth = true
 ) {
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...(options.headers as Record<string, string>),
   };
 
   if (requireAuth) {
@@ -142,8 +147,8 @@ describe('RAG API', () => {
     expect([200, 500]).toContain(result.status);
 
     if (result.status === 200) {
-      expect(result.data).toHaveProperty('results');
-      expect(Array.isArray(result.data.results)).toBe(true);
+      expect((result.data as any)).toHaveProperty('results');
+      expect(Array.isArray((result.data as any).results)).toBe(true);
     }
   });
 
@@ -160,8 +165,8 @@ describe('RAG API', () => {
     expect([200, 500]).toContain(result.status);
 
     if (result.status === 200) {
-      expect(result.data).toHaveProperty('forces');
-      expect(Array.isArray(result.data.forces)).toBe(true);
+      expect((result.data as any)).toHaveProperty('forces');
+      expect(Array.isArray((result.data as any).forces)).toBe(true);
     }
   });
 
@@ -338,9 +343,9 @@ describe('Content API', () => {
     expect([200, 500]).toContain(result.status);
 
     if (result.status === 200) {
-      expect(result.data).toHaveProperty('content');
-      expect(result.data).toHaveProperty('pagination');
-      expect(Array.isArray(result.data.content)).toBe(true);
+      expect((result.data as any)).toHaveProperty('content');
+      expect((result.data as any)).toHaveProperty('pagination');
+      expect(Array.isArray((result.data as any).content)).toBe(true);
     }
   });
 

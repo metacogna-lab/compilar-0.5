@@ -10,6 +10,45 @@ import { requireAuth } from '../middleware/auth';
 import { rateLimitGeneral } from '../middleware/ratelimit';
 import { shouldUseRestForFunction, logMigrationEvent } from '../config/feature-flags';
 
+interface QuizQuestionResponse {
+  questions: Array<{
+    id: string;
+    question: string;
+    type: string;
+    options?: any[];
+    pillar_force: string;
+    difficulty?: string;
+  }>;
+}
+
+interface RAGSearchResponse {
+  results: Array<{
+    content: string;
+    pillar?: string;
+    mode?: string;
+    relevance_score: number;
+    metadata?: any;
+  }>;
+}
+
+interface ProgressStatsResponse {
+  stats: {
+    totalAssessments: number;
+    pillarsCovered: string[];
+    modesCovered: string[];
+    pillarAverages: Record<string, number>;
+    recentActivity: any[];
+  };
+}
+
+interface AnalysisResponse {
+  analysis: any;
+}
+
+interface GuidanceResponse {
+  guidance: any;
+}
+
 const functions = new Hono();
 
 /**
@@ -30,22 +69,22 @@ functions.post('/:functionName', requireAuth, rateLimitGeneral, async (c) => {
       // Route to REST handlers
       switch (functionName) {
         case 'generateQuestionsByDifficulty':
-          return await handleGenerateQuestions(user, body);
+          return c.json(await handleGenerateQuestions(user, body));
 
         case 'vectorSearch':
-          return await handleVectorSearch(user, body);
+          return c.json(await handleVectorSearch(user, body));
 
         case 'generateAICoaching':
-          return await handleGenerateAICoaching(user, body);
+          return c.json(await handleGenerateAICoaching(user, body));
 
         case 'getUserProfileInsights':
-          return await handleGetUserProfileInsights(user, body);
+          return c.json(await handleGetUserProfileInsights(user, body));
 
         case 'analyzeContent':
-          return await handleAnalyzeContent(user, body);
+          return c.json(await handleAnalyzeContent(user, body));
 
         case 'getAssessmentGuidance':
-          return await handleGetAssessmentGuidance(user, body);
+          return c.json(await handleGetAssessmentGuidance(user, body));
 
         default:
           return c.json({
@@ -87,7 +126,8 @@ async function handleGenerateQuestions(user: any, body: any) {
   }
 
   // Proxy to AI quiz questions endpoint
-  const aiResponse = await fetch('http://localhost:3001/api/v1/ai/quiz-questions', {
+  const API_BASE_URL = process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+  const aiResponse = await fetch(`${API_BASE_URL}/api/v1/ai/quiz-questions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -101,13 +141,18 @@ async function handleGenerateQuestions(user: any, body: any) {
     throw new Error(`AI service error: ${error}`);
   }
 
-  const data = await aiResponse.json();
+  const data = await aiResponse.json() as QuizQuestionResponse;
+
+  // Validate response structure
+  if (!data.questions || !Array.isArray(data.questions)) {
+    throw new Error('Invalid response format: expected questions array');
+  }
 
   // Transform response to Base44 format
   return {
     success: true,
     data: {
-      questions: data.questions.map((q: any) => ({
+      questions: data.questions.map((q) => ({
         id: q.id,
         question: q.question,
         type: q.type,
@@ -144,19 +189,25 @@ async function handleVectorSearch(user: any, body: any) {
     throw new Error(`RAG service error: ${error}`);
   }
 
-  const data = await ragResponse.json();
+  const data = await ragResponse.json() as RAGSearchResponse;
+
+  // Validate response structure
+  if (!data.results || !Array.isArray(data.results)) {
+    throw new Error('Invalid response format: expected results array');
+  }
 
   // Transform response to Base44 format
   return {
     success: true,
     data: {
-      results: data.results.map((r: any) => ({
+      results: data.results.map((r) => ({
         content: r.content,
         pillar: r.pillar,
         mode: r.mode,
         relevance_score: r.relevance_score,
         metadata: r.metadata,
       }))
+
     }
   };
 }
@@ -172,7 +223,8 @@ async function handleGenerateAICoaching(user: any, body: any) {
   }
 
   // Proxy to AI coaching endpoint
-  const coachingResponse = await fetch('http://localhost:3001/api/v1/ai/coaching', {
+  const API_BASE_URL = process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+  const coachingResponse = await fetch(`${API_BASE_URL}/api/v1/ai/coaching`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -219,7 +271,12 @@ async function handleGetUserProfileInsights(user: any, body: any) {
     throw new Error(`User service error: ${error}`);
   }
 
-  const data = await progressResponse.json();
+  const data = await progressResponse.json() as ProgressStatsResponse;
+
+  // Validate response structure
+  if (!data.stats) {
+    throw new Error('Invalid response format: expected stats object');
+  }
 
   // Transform to Base44 format
   return {
@@ -261,7 +318,12 @@ async function handleAnalyzeContent(user: any, body: any) {
     throw new Error(`Analysis service error: ${error}`);
   }
 
-  const data = await analysisResponse.json();
+  const data = await analysisResponse.json() as AnalysisResponse;
+
+  // Validate response structure
+  if (!data.analysis) {
+    throw new Error('Invalid response format: expected analysis field');
+  }
 
   return {
     success: true,
@@ -292,7 +354,12 @@ async function handleGetAssessmentGuidance(user: any, body: any) {
     throw new Error(`Guidance service error: ${error}`);
   }
 
-  const data = await guidanceResponse.json();
+  const data = await guidanceResponse.json() as GuidanceResponse;
+
+  // Validate response structure
+  if (!data.guidance) {
+    throw new Error('Invalid response format: expected guidance field');
+  }
 
   return {
     success: true,

@@ -5,10 +5,17 @@
  */
 
 import { Hono } from 'hono';
+import { z } from 'zod';
 import { supabase } from '../config/database';
 import { requireAuth } from '../middleware/auth';
 import { rateLimitGeneral } from '../middleware/ratelimit';
+import { validateBody, validateParams, createApiResponse } from '../middleware/validation';
 import { createAssessmentService } from '../services/assessment.service';
+import {
+  createAssessmentRequestSchema,
+  submitAnswerRequestSchema,
+  completeAssessmentRequestSchema
+} from '@compilar/shared/schemas';
 
 const assessments = new Hono();
 const assessmentService = createAssessmentService(supabase);
@@ -37,14 +44,10 @@ assessments.get('/', requireAuth, async (c) => {
  * POST /api/v1/assessments
  * Create new assessment
  */
-assessments.post('/', requireAuth, rateLimitGeneral, async (c) => {
+assessments.post('/', requireAuth, rateLimitGeneral, validateBody(createAssessmentRequestSchema), async (c) => {
   const user = c.get('user');
-  const body = await c.req.json();
+  const body = c.get('validatedBody'); // ✅ Use validated body
   const { pillar_id, mode } = body;
-
-  if (!pillar_id || !mode) {
-    return c.json({ error: 'pillar_id and mode are required' }, 400);
-  }
 
   try {
     const assessment = await assessmentService.createAssessment(
@@ -63,7 +66,7 @@ assessments.post('/', requireAuth, rateLimitGeneral, async (c) => {
  * GET /api/v1/assessments/:id
  * Get specific assessment
  */
-assessments.get('/:id', requireAuth, async (c) => {
+assessments.get('/:id', requireAuth, validateParams(z.object({ id: z.string().uuid() })), async (c) => {
   const user = c.get('user');
   const id = c.req.param('id');
 
@@ -88,14 +91,10 @@ assessments.get('/:id', requireAuth, async (c) => {
  * POST /api/v1/assessments/:id/answers
  * Submit an answer to a quiz question
  */
-assessments.post('/:id/answers', requireAuth, rateLimitGeneral, async (c) => {
+assessments.post('/:id/answers', requireAuth, rateLimitGeneral, validateParams(z.object({ id: z.string().uuid() })), validateBody(submitAnswerRequestSchema), async (c) => {
   const assessmentId = c.req.param('id');
-  const body = await c.req.json();
+  const body = c.get('validatedBody'); // ✅ Use validated body
   const { question_id, answer } = body;
-
-  if (!question_id || answer === undefined) {
-    return c.json({ error: 'question_id and answer are required' }, 400);
-  }
 
   try {
     await assessmentService.submitAnswer(assessmentId, question_id, answer);
@@ -110,7 +109,7 @@ assessments.post('/:id/answers', requireAuth, rateLimitGeneral, async (c) => {
  * POST /api/v1/assessments/:id/complete
  * Complete assessment and generate final results
  */
-assessments.post('/:id/complete', requireAuth, rateLimitGeneral, async (c) => {
+assessments.post('/:id/complete', requireAuth, rateLimitGeneral, validateParams(z.object({ id: z.string().uuid() })), validateBody(completeAssessmentRequestSchema), async (c) => {
   const assessmentId = c.req.param('id');
 
   try {
@@ -126,7 +125,7 @@ assessments.post('/:id/complete', requireAuth, rateLimitGeneral, async (c) => {
  * DELETE /api/v1/assessments/:id
  * Delete an assessment
  */
-assessments.delete('/:id', requireAuth, async (c) => {
+assessments.delete('/:id', requireAuth, validateParams(z.object({ id: z.string().uuid() })), async (c) => {
   const user = c.get('user');
   const id = c.req.param('id');
 

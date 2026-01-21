@@ -57,7 +57,7 @@ export const errorHandler = async (err: Error, c: Context) => {
     return c.json({
       error: err.message,
       code: err.code
-    }, err.status);
+    }, err.status as any);
   }
 
   // Handle Supabase/PostgREST errors

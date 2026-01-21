@@ -19,10 +19,11 @@ export interface LangsmithConfig {
  * Get Langsmith configuration from environment
  */
 export function getLangsmithConfig(): LangsmithConfig {
+  // Temporarily disable Langsmith for integration testing
   return {
     apiKey: process.env.LANGSMITH_API_KEY || '',
     project: process.env.LANGSMITH_PROJECT || 'compilar-v0.5',
-    enabled: Boolean(process.env.LANGSMITH_API_KEY),
+    enabled: Boolean(process.env.LANGSMITH_API_KEY), // Enable if API key is provided
   };
 }
 

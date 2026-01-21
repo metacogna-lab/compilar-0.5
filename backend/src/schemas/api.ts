@@ -296,40 +296,82 @@ export const enhancedApiResponseSchema = <T extends z.ZodType>(dataSchema: T) =>
       has_more: z.boolean()
     }).optional()
   })
+ });
+
+
+// Additional Assessment Schemas
+export const submitAnswerRequestSchema = z.object({
+  question_id: z.string().uuid(),
+  answer: z.union([z.number(), z.string(), z.boolean()])
+});
+
+export const completeAssessmentRequestSchema = z.object({
+  final_notes: z.string().max(1000).optional()
+});
+
+// User Schemas
+export const updateProfileRequestSchema = z.object({
+  display_name: z.string().min(2).max(100).optional(),
+  avatar_url: z.string().url().optional(),
+  bio: z.string().max(500).optional(),
+  preferred_mode: z.enum(['egalitarian', 'hierarchical']).optional(),
+  preferences: z.record(z.any()).optional(),
+  metadata: z.record(z.any()).optional()
+});
+
+export const historyQuerySchema = z.object({
+  limit: z.coerce.number().min(1).max(100).default(20),
+  offset: z.coerce.number().min(0).default(0)
+});
+
+// Team Schemas
+export const updateTeamRequestSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).optional()
+});
+
+export const addTeamMemberRequestSchema = z.object({
+  user_id: z.string().uuid(),
+  role: z.enum(['admin', 'member']).default('member')
+});
+
+// Updated RAG Schemas
+export const ragQueryRequestSchemaFull = z.object({
+  query: z.string().min(1).max(1000),
+  pillar: z.string().optional(),
+  mode: z.enum(['egalitarian', 'hierarchical']).optional(),
+  category: z.string().optional(),
+  limit: z.coerce.number().min(1).max(20).default(5)
+});
+
+export const ingestKnowledgeRequestSchema = z.object({
+  content: z.string().min(1),
+  metadata: z.object({
+    title: z.string().optional(),
+    pillar: z.string().optional(),
+    mode: z.enum(['egalitarian', 'hierarchical']).optional(),
+    category: z.string().optional()
+  }).optional()
+});
+
+// Content Schemas
+export const updateContentRequestSchemaFull = z.object({
+  title: z.string().min(1).max(200).optional(),
+  content: z.string().min(1).optional(),
+  content_type: z.enum(['blog', 'page', 'resource']).optional(),
+  pillar_id: z.string().optional(),
+  mode: z.enum(['egalitarian', 'hierarchical']).optional(),
+  tags: z.array(z.string()).optional(),
+  metadata: z.record(z.any()).optional(),
+  status: z.enum(['draft', 'published', 'archived']).optional()
+});
+
+export const contentQuerySchema = z.object({
+  pillar: z.string().optional(),
+  mode: z.enum(['egalitarian', 'hierarchical']).optional(),
+  status: z.enum(['draft', 'published', 'archived']).optional(),
+  limit: z.coerce.number().min(1).max(50).default(20),
+  offset: z.coerce.number().min(0).default(0)
 });
 
 // Type exports
-export type AuthMeResponse = z.infer<typeof authMeResponseSchema>
-export type CreateAssessmentRequest = z.infer<typeof createAssessmentRequestSchema>
-export type CreateAssessmentResponse = z.infer<typeof createAssessmentResponseSchema>
-export type ListAssessmentsResponse = z.infer<typeof listAssessmentsResponseSchema>
-export type GetAssessmentResponse = z.infer<typeof getAssessmentResponseSchema>
-export type CreateSessionRequest = z.infer<typeof createSessionRequestSchema>
-export type CreateSessionResponse = z.infer<typeof createSessionResponseSchema>
-export type ListBlogPostsResponse = z.infer<typeof listBlogPostsResponseSchema>
-export type GetBlogPostResponse = z.infer<typeof getBlogPostResponseSchema>
-export type GetBlogPillarsResponse = z.infer<typeof getBlogPillarsResponseSchema>
-export type GetBlogTagsResponse = z.infer<typeof getBlogTagsResponseSchema>
-export type GenerateCoachingRequest = z.infer<typeof generateCoachingRequestSchema>
-export type GenerateCoachingResponse = z.infer<typeof generateCoachingResponseSchema>
-export type LegacyRagQueryRequest = z.infer<typeof legacyRagQueryRequestSchema>
-export type LegacyRagQueryResponse = z.infer<typeof legacyRagQueryResponseSchema>
-export type GenerateQuestionsRequest = z.infer<typeof generateQuestionsRequestSchema>
-export type GenerateQuestionsResponse = z.infer<typeof generateQuestionsResponseSchema>
-export type CreateContentRequest = z.infer<typeof createContentRequestSchema>
-export type CreateContentResponse = z.infer<typeof createContentResponseSchema>
-export type UpdateContentRequest = z.infer<typeof updateContentRequestSchema>
-export type ListContentResponse = z.infer<typeof listContentResponseSchema>
-export type CreateTeamRequest = z.infer<typeof createTeamRequestSchema>
-export type CreateTeamResponse = z.infer<typeof createTeamResponseSchema>
-export type ListTeamsResponse = z.infer<typeof listTeamsResponseSchema>
-export type CoachConversationRequest = z.infer<typeof coachConversationRequestSchema>
-export type CoachConversationResponse = z.infer<typeof coachConversationResponseSchema>
-export type RagQueryRequestSpec = z.infer<typeof ragQueryRequestSchema>
-export type RagQueryResponseSpec = z.infer<typeof ragQueryResponseSchema>
-export type AssessmentGuidanceRequest = z.infer<typeof assessmentGuidanceRequestSchema>
-export type AssessmentGuidanceResponse = z.infer<typeof assessmentGuidanceResponseSchema>
-export type ContentAnalysisRequest = z.infer<typeof contentAnalysisRequestSchema>
-export type ContentAnalysisResponse = z.infer<typeof contentAnalysisResponseSchema>
-export type ErrorResponse = z.infer<typeof errorResponseSchema>
-export type HealthResponse = z.infer<typeof healthResponseSchema>

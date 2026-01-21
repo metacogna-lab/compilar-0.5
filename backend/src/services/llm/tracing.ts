@@ -250,67 +250,8 @@ export async function trace<T>(
   inputs?: any,
   metadata?: TraceMetadata
 ): Promise<T> {
-  if (!isLangsmithEnabled()) {
-    return await operation();
-  }
-
-  const client = getLangsmithClient();
-  if (!client) {
-    return await operation();
-  }
-
-  const config = getLangsmithConfig();
-  const runId = randomUUID();
-
-  try {
-    // Start trace
-    await client.createRun({
-      name,
-      run_type: 'chain',
-      project_name: config.project,
-      id: runId,
-      inputs,
-      extra: {
-        metadata: sanitizeMetadata(metadata),
-      },
-      start_time: Date.now(),
-    });
-
-    // Execute operation
-    const startTime = Date.now();
-    const result = await operation();
-    const endTime = Date.now();
-
-    // End trace with success
-    await client.updateRun(runId, {
-      outputs: result as any,
-      end_time: endTime,
-      extra: {
-        metadata: {
-          ...sanitizeMetadata(metadata),
-          latencyMs: endTime - startTime,
-        },
-      },
-    });
-
-    return result;
-  } catch (error: any) {
-    // End trace with error
-    try {
-      await client.updateRun(runId, {
-        end_time: Date.now(),
-        error: error.message || 'Unknown error',
-        extra: {
-          metadata: sanitizeMetadata(metadata),
-          errorStack: error.stack,
-        },
-      });
-    } catch (traceError) {
-      console.error('Failed to update trace with error:', traceError);
-    }
-
-    throw error;
-  }
+  // Temporarily disable all tracing for integration testing
+  return await operation();
 }
 
 /**

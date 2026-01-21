@@ -7,19 +7,10 @@
 import React, { useState, useEffect } from 'react';
 import { featureRegistry } from '../../utils/migration/featureRegistry';
 import { Base44Detector } from '../../utils/migration/base44Detector';
-import { FeatureMetadata } from '../../utils/migration/featureRegistry';
 
-interface MigrationStats {
-  total: number;
-  migrated: number;
-  inProgress: number;
-  failed: number;
-  pending: number;
-}
-
-const MigrationDashboard: React.FC = () => {
-  const [features, setFeatures] = useState<FeatureMetadata[]>([]);
-  const [stats, setStats] = useState<MigrationStats>({
+const MigrationDashboard = () => {
+  const [features, setFeatures] = useState([]);
+  const [stats, setStats] = useState({
     total: 0,
     migrated: 0,
     inProgress: 0,
@@ -33,7 +24,7 @@ const MigrationDashboard: React.FC = () => {
     name: '',
     description: '',
     base44Usage: '',
-    priority: 'medium' as const
+    priority: 'medium'
   });
 
   useEffect(() => {
@@ -96,7 +87,7 @@ const MigrationDashboard: React.FC = () => {
     }
   };
 
-  const generateMigration = async (featureId: string) => {
+  const generateMigration = async (featureId) => {
     try {
       const script = featureRegistry.generateMigrationScript(featureId);
       if (script) {
@@ -108,7 +99,7 @@ const MigrationDashboard: React.FC = () => {
     }
   };
 
-  const updateFeatureStatus = async (featureId: string, status: FeatureMetadata['status']) => {
+  const updateFeatureStatus = async (featureId, status) => {
     try {
       featureRegistry.updateFeatureStatus(featureId, status);
     } catch (error) {
@@ -116,11 +107,11 @@ const MigrationDashboard: React.FC = () => {
     }
   };
 
-  const getStatusText = (status: FeatureMetadata['status']) => {
+  const getStatusText = (status) => {
     return status.charAt(0).toUpperCase() + status.slice(1);
   };
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = (priority) => {
     switch (priority) {
       case 'high': return 'text-red-600';
       case 'medium': return 'text-yellow-600';
@@ -253,7 +244,7 @@ const MigrationDashboard: React.FC = () => {
                         </button>
                         <select
                           value={feature.status}
-                          onChange={(e) => updateFeatureStatus(feature.name, e.target.value as any)}
+                           onChange={(e) => updateFeatureStatus(feature.name, e.target.value)}
                           className="px-2 py-1 text-sm border border-gray-300 rounded"
                         >
                           <option value="detected">Detected</option>
@@ -312,7 +303,7 @@ const MigrationDashboard: React.FC = () => {
                 <label className="block text-sm font-medium mb-1">Priority</label>
                 <select
                   value={newFeature.priority}
-                  onChange={(e) => setNewFeature(prev => ({ ...prev, priority: e.target.value as any }))}
+                   onChange={(e) => setNewFeature(prev => ({ ...prev, priority: e.target.value }))}
                   className="w-full p-2 border border-gray-300 rounded"
                 >
                   <option value="low">Low</option>

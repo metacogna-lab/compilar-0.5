@@ -4,7 +4,7 @@
  * Production-ready rate limiter with Redis backend for multi-instance deployments
  */
 
-import { Context, Next } from 'hono';
+import { Context, Next, MiddlewareHandler } from 'hono';
 import Redis from 'ioredis';
 
 interface RateLimitRecord {
@@ -67,7 +67,7 @@ export interface RateLimiterOptions {
 /**
  * Create a rate limiter middleware
  */
-export const createRateLimiter = (options: RateLimiterOptions) => {
+export const createRateLimiter = (options: RateLimiterOptions): MiddlewareHandler => {
   return async (c: Context, next: Next) => {
     const client = getRedisClient();
     const useRedis = client && client.status === 'ready';

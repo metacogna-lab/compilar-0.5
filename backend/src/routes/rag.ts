@@ -8,7 +8,14 @@ import { Hono } from 'hono';
 import { supabase } from '../config/database';
 import { optionalAuth, requireAuth, requireAdmin } from '../middleware/auth';
 import { rateLimitGeneral } from '../middleware/ratelimit';
+import { validateBody, validateQuery } from '../middleware/validation';
 import { createRAGService } from '../services/rag.service';
+import {
+  ragQueryRequestSchema,
+  getForcesQuerySchema,
+  getConnectionsQuerySchema,
+  ingestKnowledgeRequestSchema
+} from '@compilar/shared/schemas';
 
 const rag = new Hono();
 const ragService = createRAGService(supabase);
@@ -17,14 +24,9 @@ const ragService = createRAGService(supabase);
  * POST /api/v1/rag/query
  * Semantic search over PILAR knowledge base
  */
-rag.post('/query', optionalAuth, rateLimitGeneral, async (c) => {
+rag.post('/query', optionalAuth, rateLimitGeneral, validateBody(ragQueryRequestSchema), async (c) => {
   const user = c.get('user');
-  const body = await c.req.json();
-  const { query, pillar, mode, category, limit = 5 } = body;
-
-  if (!query) {
-    return c.json({ error: 'query is required' }, 400);
-  }
+  const { query, pillar, mode, category, limit } = c.get('validatedBody');
 
   try {
     const results = await ragService.semanticSearch(
@@ -35,7 +37,10 @@ rag.post('/query', optionalAuth, rateLimitGeneral, async (c) => {
         category,
         limit
       },
-      user?.id
+      {
+        userId: user?.id,
+        feature: 'rag_query'
+      }
     );
 
     return c.json({ results });
@@ -49,21 +54,18 @@ rag.post('/query', optionalAuth, rateLimitGeneral, async (c) => {
  * Get psychological forces for a specific pillar and mode
  * Query params: mode (egalitarian | hierarchical)
  */
-rag.get('/forces/:pillar', optionalAuth, async (c) => {
-  const user = c.get('user');
+rag.get('/forces/:pillar', optionalAuth, validateQuery(getForcesQuerySchema), async (c) => {
+  const _user = c.get('user');
   const pillar = c.req.param('pillar');
-  const mode = c.req.query('mode');
+  const validatedQuery = c.get('validatedQuery') as { mode?: string };
 
-  if (!pillar) {
-    return c.json({ error: 'pillar is required' }, 400);
-  }
-
-  if (!mode || !['egalitarian', 'hierarchical'].includes(mode)) {
-    return c.json({ error: 'mode must be egalitarian or hierarchical' }, 400);
+  // Mode is required for this endpoint
+  if (!validatedQuery.mode) {
+    return c.json({ error: 'mode query parameter is required' }, 400);
   }
 
   try {
-    const forces = await ragService.getForces(pillar, mode, user?.id);
+    const forces = await ragService.getForces(pillar, validatedQuery.mode);
 
     return c.json({ forces });
   } catch (error: any) {
@@ -76,16 +78,12 @@ rag.get('/forces/:pillar', optionalAuth, async (c) => {
  * Get force connections for a specific mode
  * Query params: mode (egalitarian | hierarchical)
  */
-rag.get('/connections', optionalAuth, async (c) => {
+rag.get('/connections', optionalAuth, validateQuery(getConnectionsQuerySchema), async (c) => {
   const user = c.get('user');
-  const mode = c.req.query('mode');
-
-  if (!mode || !['egalitarian', 'hierarchical'].includes(mode)) {
-    return c.json({ error: 'mode must be egalitarian or hierarchical' }, 400);
-  }
+  const { mode } = c.get('validatedQuery');
 
   try {
-    const connections = await ragService.getConnections(mode, user?.id);
+    const connections = await ragService.getConnections(mode);
 
     return c.json({ connections });
   } catch (error: any) {
@@ -97,14 +95,9 @@ rag.get('/connections', optionalAuth, async (c) => {
  * POST /api/v1/rag/ingest
  * Ingest new knowledge into the RAG system (admin only)
  */
-rag.post('/ingest', requireAuth, requireAdmin, rateLimitGeneral, async (c) => {
+rag.post('/ingest', requireAuth, requireAdmin, rateLimitGeneral, validateBody(ingestKnowledgeRequestSchema), async (c) => {
   const user = c.get('user');
-  const body = await c.req.json();
-  const { content, metadata } = body;
-
-  if (!content) {
-    return c.json({ error: 'content is required' }, 400);
-  }
+  const { content, metadata } = c.get('validatedBody');
 
   try {
     await ragService.ingestKnowledge(
@@ -114,7 +107,6 @@ rag.post('/ingest', requireAuth, requireAdmin, rateLimitGeneral, async (c) => {
         created_by: user.id,
         created_at: new Date().toISOString()
       },
-      user.id
     );
 
     return c.json({ success: true, message: 'Knowledge ingested successfully' });

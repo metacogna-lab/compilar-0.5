@@ -54,9 +54,33 @@ app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOStri
 const api = new Hono()
 
 // Auth routes
+// Test endpoint to get a mock JWT token for integration testing
+api.post('/auth/test-login', async (c) => {
+  // Return a mock JWT token for testing
+  // In production, this would validate credentials against Supabase
+  const mockToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+  return c.json({
+    access_token: mockToken,
+    token_type: 'bearer',
+    expires_in: 3600,
+    user: {
+      id: '12345678-1234-1234-1234-123456789012',
+      email: 'test@example.com',
+      full_name: 'Test User',
+      role: 'user'
+    }
+  });
+});
+
 api.get('/auth/me', requireAuth, async (c) => {
   const user = c.get('user')
   return c.json({ user })
+})
+
+// Test endpoint to check cache stats
+api.get('/auth/cache-stats', async (c) => {
+  const { getTokenCacheStats } = await import('./middleware/auth');
+  return c.json(getTokenCacheStats());
 })
 
 // Mount route modules

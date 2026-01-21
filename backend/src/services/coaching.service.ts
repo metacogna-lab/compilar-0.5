@@ -15,7 +15,7 @@ export interface CoachingRequest {
   userId: string;
   assessmentId: string;
   pillar: string;
-  mode: string;
+  mode: 'egalitarian' | 'hierarchical';
   scores?: Record<string, number>;
   responses?: Array<{
     question: string;
@@ -33,7 +33,7 @@ export interface ConversationContext {
   userId: string;
   assessmentId?: string;
   pillar?: string;
-  mode?: string;
+  mode?: 'egalitarian' | 'hierarchical';
   history: ChatMessage[];
 }
 
@@ -162,7 +162,7 @@ export class CoachingService {
   async getGuidance(
     userId: string,
     pillar?: string,
-    mode?: string
+    mode?: 'egalitarian' | 'hierarchical'
   ): Promise<string> {
     const metadata: TraceMetadata = {
       userId,

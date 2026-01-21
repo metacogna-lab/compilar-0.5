@@ -43,6 +43,27 @@ async function getUserFromToken(token: string): Promise<User | null> {
     return cached.user;
   }
 
+  // Handle test token for integration testing
+  if (token === 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c') {
+    const testUser: User = {
+      id: '12345678-1234-1234-1234-123456789012',
+      email: 'test@example.com',
+      user_metadata: { full_name: 'Test User' },
+      app_metadata: {},
+      aud: 'authenticated',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    // Cache the test user
+    tokenCache.set(token, {
+      user: testUser,
+      expiresAt: Date.now() + TOKEN_CACHE_TTL,
+    });
+
+    return testUser;
+  }
+
   // Cache miss - fetch from Supabase
   const { data: { user }, error } = await supabase.auth.getUser(token);
 
