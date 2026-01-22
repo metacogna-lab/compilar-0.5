@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { base44 } from '@/api/base44Client';
+import { useRestApi } from '@/hooks/useRestApi';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -15,39 +15,31 @@ export default function StudyGroupWorkspace() {
   const urlParams = new URLSearchParams(window.location.search);
   const groupId = urlParams.get('groupId');
   const queryClient = useQueryClient();
+  const { get, put, user: currentUser } = useRestApi();
 
   React.useEffect(() => {
     trackPageView('StudyGroupWorkspace');
   }, []);
 
-  const { data: currentUser } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: () => base44.auth.me(),
-  });
-
-  const { data: group } = useQuery({
+  const { data: groupResponse } = useQuery({
     queryKey: ['studyGroup', groupId],
-    queryFn: () => base44.entities.StudyGroup.filter({ id: groupId }).then(r => r[0]),
+    queryFn: () => get(`/study-groups/${groupId}`),
     enabled: !!groupId,
   });
 
+  const group = groupResponse?.study_group;
+
+  // TODO: Implement peer feedback API endpoints
   const { data: feedbackRequests = [] } = useQuery({
     queryKey: ['feedbackRequests', groupId],
-    queryFn: async () => {
-      const memberEmails = group?.members?.map(m => m.email) || [];
-      if (memberEmails.length === 0) return [];
-      
-      const all = await base44.entities.PeerFeedback.list();
-      return all.filter(f => 
-        memberEmails.includes(f.requester_email) || memberEmails.includes(f.provider_email)
-      );
-    },
+    queryFn: () => [], // TODO: Replace with GET /api/peer-feedback?groupId=${groupId}
     enabled: !!group,
   });
 
+  // TODO: Implement peer feedback API endpoints
   const provideFeedbackMutation = useMutation({
     mutationFn: async ({ feedbackId, content }) => {
-      return base44.entities.PeerFeedback.update(feedbackId, {
+      return put(`/peer-feedback/${feedbackId}`, {
         feedback_content: content,
         status: 'provided',
         provided_at: new Date().toISOString()
@@ -60,7 +52,7 @@ export default function StudyGroupWorkspace() {
 
   const rateFeedbackMutation = useMutation({
     mutationFn: async ({ feedbackId, rating }) => {
-      return base44.entities.PeerFeedback.update(feedbackId, {
+      return put(`/peer-feedback/${feedbackId}`, {
         rating,
         status: 'acknowledged'
       });
