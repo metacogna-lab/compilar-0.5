@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { base44 } from '@/api/base44Client';
+import { useRestApi } from '@/hooks/useRestApi';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -24,55 +24,54 @@ export default function DevelopmentPlans() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newPlan, setNewPlan] = useState({ title: '', target_pillars: [] });
   const queryClient = useQueryClient();
+  const { get, post, put, user: currentUser } = useRestApi();
 
   React.useEffect(() => {
     trackPageView('DevelopmentPlans');
   }, []);
 
-  const { data: currentUser } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: () => base44.auth.me(),
-  });
-
-  const { data: plans = [] } = useQuery({
+  const { data: plansResponse } = useQuery({
     queryKey: ['developmentPlans'],
-    queryFn: () => base44.entities.DevelopmentPlan.list('-created_date'),
+    queryFn: () => get('/learning/development-plans'),
   });
 
-  const { data: userProfile } = useQuery({
+  const plans = plansResponse?.plans || [];
+
+  const { data: userProfileResponse } = useQuery({
     queryKey: ['userProfile'],
-    queryFn: async () => {
-      const profiles = await base44.entities.UserProfile.list();
-      return profiles[0];
-    },
+    queryFn: () => get('/users/profile'),
   });
 
-  const { data: gamification } = useQuery({
+  const userProfile = userProfileResponse?.profile;
+
+  const { data: gamificationResponse } = useQuery({
     queryKey: ['gamification'],
-    queryFn: async () => {
-      const records = await base44.entities.UserGamification.list();
-      return records[0];
-    },
+    queryFn: () => get('/gamification'),
   });
 
-  const { data: assessments = [] } = useQuery({
+  const gamification = gamificationResponse?.gamification;
+
+  const { data: assessmentsResponse } = useQuery({
     queryKey: ['assessments'],
-    queryFn: () => base44.entities.PilarAssessment.list(),
+    queryFn: () => get('/assessments'),
   });
 
+  const assessments = assessmentsResponse?.assessments || [];
+
+  // TODO: Implement GroupRound API endpoints
   const { data: groups = [] } = useQuery({
     queryKey: ['groups'],
-    queryFn: () => base44.entities.GroupRound.list(),
+    queryFn: () => [], // TODO: Replace with GET /api/group-rounds
   });
 
   const myPlans = plans.filter(p => p.created_by === currentUser?.email);
 
   const createPlanMutation = useMutation({
     mutationFn: async (planData) => {
-      const activities = planData.target_pillars.flatMap(pillar => 
+      const activities = planData.target_pillars.flatMap(pillar =>
         generatePlanActivities(pillar, userProfile?.pillar_scores?.[pillar] || 50)
       );
-      
+
       const goals = planData.target_pillars.map(pillar => ({
         id: `goal_${pillar}_${Date.now()}`,
         pillar,
@@ -83,13 +82,11 @@ export default function DevelopmentPlans() {
         status: 'not_started',
       }));
 
-      return base44.entities.DevelopmentPlan.create({
-        ...planData,
-        activities,
-        goals,
-        status: 'active',
-        progress_percentage: 0,
-        start_date: new Date().toISOString(),
+      return post('/learning/development-plans', {
+        planTitle: planData.title,
+        targetPillars: planData.target_pillars,
+        actionItems: activities,
+        timelineWeeks: 12, // Default timeline
       });
     },
     onSuccess: () => {
@@ -99,12 +96,10 @@ export default function DevelopmentPlans() {
     },
   });
 
+  // TODO: Implement gamification update API endpoints
   const updateGamificationMutation = useMutation({
     mutationFn: async (data) => {
-      if (gamification) {
-        return base44.entities.UserGamification.update(gamification.id, data);
-      }
-      return base44.entities.UserGamification.create(data);
+      return put('/gamification', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['gamification']);
@@ -117,7 +112,7 @@ export default function DevelopmentPlans() {
       if (!plan) return;
 
       const activity = plan.activities.find(a => a.id === activityId);
-      const updatedActivities = plan.activities.map(a => 
+      const updatedActivities = plan.activities.map(a =>
         a.id === activityId ? { ...a, completed: true, completed_at: new Date().toISOString() } : a
       );
 
@@ -125,33 +120,33 @@ export default function DevelopmentPlans() {
       const progress = Math.round((completedCount / updatedActivities.length) * 100);
 
       // Update plan
-      await base44.entities.DevelopmentPlan.update(planId, {
-        activities: updatedActivities,
-        progress_percentage: progress,
+      await put(`/learning/development-plans/${planId}`, {
+        actionItems: updatedActivities,
+        completionPercentage: progress,
         status: progress === 100 ? 'completed' : 'active',
       });
 
-      // Award points
-      const points = activity?.points || POINTS_CONFIG.activity_completed;
-      const newTotal = (gamification?.total_points || 0) + points;
-      const newHistory = [
-        ...(gamification?.points_history || []),
-        { points, reason: `Completed: ${activity?.title}`, pillar: activity?.pillar, earned_at: new Date().toISOString() }
-      ];
+      // TODO: Award points via gamification API
+      // const points = activity?.points || POINTS_CONFIG.activity_completed;
+      // const newTotal = (gamification?.total_points || 0) + points;
+      // const newHistory = [
+      //   ...(gamification?.points_history || []),
+      //   { points, reason: `Completed: ${activity?.title}`, pillar: activity?.pillar, earned_at: new Date().toISOString() }
+      // ];
 
       // Check for new badges
-      const newBadges = checkBadgeEligibility(
-        { ...gamification, total_points: newTotal },
-        userProfile,
-        assessments,
-        groups
-      );
+      // const newBadges = checkBadgeEligibility(
+      //   { ...gamification, total_points: newTotal },
+      //   userProfile,
+      //   assessments,
+      //   groups
+      // );
 
-      await updateGamificationMutation.mutateAsync({
-        total_points: newTotal,
-        points_history: newHistory,
-        badges: [...(gamification?.badges || []), ...newBadges],
-      });
+      // await updateGamificationMutation.mutateAsync({
+      //   total_points: newTotal,
+      //   points_history: newHistory,
+      //   badges: [...(gamification?.badges || []), ...newBadges],
+      // });
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['developmentPlans']);
