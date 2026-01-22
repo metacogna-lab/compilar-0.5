@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { base44 } from '@/api/base44Client';
+import { useRestApi } from '@/hooks/useRestApi';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -133,9 +133,10 @@ export default function Pillar() {
       const [showNarrator, setShowNarrator] = useState(false);
       const [questStage, setQuestStage] = useState(0);
       const [showRealmTransition, setShowRealmTransition] = useState(false);
-  
+
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { get, post, put, user: currentUser } = useRestApi();
 
   useEffect(() => {
     trackPageView('Pillar', pillarId);
@@ -147,40 +148,40 @@ export default function Pillar() {
     }
   }, [currentQuestion, showAssessment]);
 
-  const { data: existingAssessments = [] } = useQuery({
+  const { data: existingAssessmentsResponse = { assessments: [] } } = useQuery({
     queryKey: ['assessments', pillarId],
-    queryFn: async () => {
-      return base44.entities.PilarAssessment.filter({ pillar: pillarId });
-    },
+    queryFn: () => get(`/assessments?pillar=${pillarId}`),
   });
 
-  const { data: allAssessments = [] } = useQuery({
+  const existingAssessments = existingAssessmentsResponse.assessments || [];
+
+  const { data: allAssessmentsResponse = { assessments: [] } } = useQuery({
     queryKey: ['assessments'],
-    queryFn: () => base44.entities.PilarAssessment.list(),
+    queryFn: () => get('/assessments'),
   });
 
-  const { data: userProfile } = useQuery({
+  const allAssessments = allAssessmentsResponse.assessments || [];
+
+  const { data: userProfileResponse } = useQuery({
     queryKey: ['userProfile'],
-    queryFn: async () => {
-      const profiles = await base44.entities.UserProfile.list();
-      return profiles[0];
-    },
+    queryFn: () => get('/users/profile'),
   });
 
-  const { data: gamification } = useQuery({
+  const userProfile = userProfileResponse?.profile;
+
+  const { data: gamificationResponse } = useQuery({
     queryKey: ['gamification'],
-    queryFn: async () => {
-      const records = await base44.entities.UserGamification.list();
-      return records[0];
-    },
+    queryFn: () => get('/gamification'),
   });
+
+  const gamification = gamificationResponse?.gamification;
 
   const completedAssessment = existingAssessments.find(a => a.completed);
   const attemptNumber = existingAssessments.length + 1;
 
   const saveMutation = useMutation({
     mutationFn: async (data) => {
-      return base44.entities.PilarAssessment.create(data);
+      return post('/assessments', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['assessments']);
@@ -190,10 +191,7 @@ export default function Pillar() {
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data) => {
-      if (userProfile) {
-        return base44.entities.UserProfile.update(userProfile.id, data);
-      }
-      return base44.entities.UserProfile.create(data);
+      return put('/users/profile', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['userProfile']);
@@ -321,18 +319,18 @@ export default function Pillar() {
 
       trackAssessmentCompleted(pillarId, avgScore, newResponses.length);
 
-      // Award points for assessment completion
-      const isFirstAssessment = attemptNumber === 1;
-      const pointsReason = isFirstAssessment ? 'assessment_completed' : 'assessment_retake';
-      await awardPoints(base44, pointsReason, pillarId);
+      // TODO: Award points for assessment completion
+      // const isFirstAssessment = attemptNumber === 1;
+      // const pointsReason = isFirstAssessment ? 'assessment_completed' : 'assessment_retake';
+      // await awardPoints(pointsReason, pillarId);
 
-      // Check for new badges
-      const newBadges = checkBadgeEligibility(gamification, { ...userProfile, pillar_scores: updatedScores }, [...allAssessments, assessmentData], []);
-      if (newBadges.length > 0 && gamification) {
-        await base44.entities.UserGamification.update(gamification.id, {
-          badges: [...(gamification.badges || []), ...newBadges]
-        });
-      }
+      // TODO: Check for new badges and update gamification
+      // const newBadges = checkBadgeEligibility(gamification, { ...userProfile, pillar_scores: updatedScores }, [...allAssessments, assessmentData], []);
+      // if (newBadges.length > 0 && gamification) {
+      //   await put('/gamification', {
+      //     badges: [...(gamification.badges || []), ...newBadges]
+      //   });
+      // }
 
       queryClient.invalidateQueries(['gamification']);
 
