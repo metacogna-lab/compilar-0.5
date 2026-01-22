@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { base44 } from '@/api/base44Client';
+import { useRestApi } from '@/hooks/useRestApi';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -45,42 +45,36 @@ export default function LearningPathways() {
   const [selectedPillar, setSelectedPillar] = useState(null);
   const [moduleNotes, setModuleNotes] = useState('');
   const [moduleRating, setModuleRating] = useState(0);
-  
+
   const queryClient = useQueryClient();
+  const { get, user: currentUser } = useRestApi();
 
   React.useEffect(() => {
     trackPageView('LearningPathways');
   }, []);
 
-  const { data: currentUser } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: () => base44.auth.me(),
-  });
-
-  const { data: userProfile } = useQuery({
+  const { data: userProfileResponse } = useQuery({
     queryKey: ['userProfile'],
-    queryFn: async () => {
-      const profiles = await base44.entities.UserProfile.list();
-      return profiles[0];
-    },
+    queryFn: () => get('/users/profile'),
   });
 
-  const { data: pathways = [], isLoading } = useQuery({
+  const userProfile = userProfileResponse?.profile;
+
+  // TODO: Implement learning pathways API endpoints
+  const { data: pathwaysResponse = { pathways: [] }, isLoading } = useQuery({
     queryKey: ['learningPathways', currentUser?.email],
-    queryFn: async () => {
-      if (!currentUser?.email) return [];
-      return base44.entities.LearningPathway.filter({ user_email: currentUser.email });
-    },
+    queryFn: () => ({ pathways: [] }), // TODO: Replace with GET /api/learning/pathways
     enabled: !!currentUser?.email,
   });
 
-  const { data: gamification } = useQuery({
+  const pathways = pathwaysResponse.pathways || [];
+
+  const { data: gamificationResponse } = useQuery({
     queryKey: ['gamification'],
-    queryFn: async () => {
-      const records = await base44.entities.UserGamification.list();
-      return records[0];
-    },
+    queryFn: () => get('/gamification'),
   });
+
+  const gamification = gamificationResponse?.gamification;
 
   const createPathwayMutation = useMutation({
     mutationFn: async (pillar) => {
@@ -99,25 +93,24 @@ export default function LearningPathways() {
     },
     onSuccess: async (result) => {
       queryClient.invalidateQueries(['learningPathways']);
-      
-      // Award points
-      if (gamification && result.points > 0) {
-        const newPoints = (gamification.total_points || 0) + result.points;
-        await base44.entities.UserGamification.update(gamification.id, {
-          total_points: newPoints,
-          points_history: [
-            ...(gamification.points_history || []),
-            { points: result.points, reason: 'Module completed', earned_at: new Date().toISOString() }
-          ]
-        });
-        queryClient.invalidateQueries(['gamification']);
-      }
-      
+
+      // TODO: Award points via REST API
+      // if (gamification && result.points > 0) {
+      //   await put('/gamification', {
+      //     total_points: (gamification.total_points || 0) + result.points,
+      //     points_history: [
+      //       ...(gamification.points_history || []),
+      //       { points: result.points, reason: 'Module completed', earned_at: new Date().toISOString() }
+      //     ]
+      //   });
+      //   queryClient.invalidateQueries(['gamification']);
+      // }
+
       // Celebration for pathway completion
       if (result.isCompleted) {
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       }
-      
+
       setActiveModule(null);
       setModuleNotes('');
       setModuleRating(0);
