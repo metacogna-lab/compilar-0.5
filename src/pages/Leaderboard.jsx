@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { base44 } from '@/api/base44Client';
+import { useRestApi } from '@/hooks/useRestApi';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -9,30 +9,29 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { calculateLevel, getRankTitle } from '@/components/pilar/GamificationService';
 import ProfileAvatar from '@/components/pilar/ProfileAvatar';
+import { cn } from '@/lib/utils';
 
 export default function Leaderboard() {
   const [view, setView] = useState('points');
   const [filterPillar, setFilterPillar] = useState('all');
+  const { user: currentUser } = useRestApi();
 
-  const { data: currentUser } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: () => base44.auth.me(),
-  });
-
+  // TODO: Implement admin endpoints for leaderboard data
+  // These queries need admin-level access to get all users' data
   const { data: allUsers = [] } = useQuery({
     queryKey: ['allUsers'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => [], // TODO: Replace with GET /api/admin/users
     enabled: false
   });
 
   const { data: gamificationRecords = [] } = useQuery({
     queryKey: ['allGamification'],
-    queryFn: () => base44.entities.UserGamification.list(),
+    queryFn: () => [], // TODO: Replace with GET /api/admin/gamification
   });
 
   const { data: userProfiles = [] } = useQuery({
     queryKey: ['allUserProfiles'],
-    queryFn: () => base44.entities.UserProfile.list(),
+    queryFn: () => [], // TODO: Replace with GET /api/admin/profiles
   });
 
   // Merge data
