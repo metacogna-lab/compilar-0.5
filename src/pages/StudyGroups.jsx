@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { base44 } from '@/api/base44Client';
+import { useRestApi } from '@/hooks/useRestApi';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -16,47 +16,35 @@ export default function StudyGroups() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const queryClient = useQueryClient();
+  const { get, post, user: currentUser } = useRestApi();
 
   React.useEffect(() => {
     trackPageView('StudyGroups');
   }, []);
 
-  const { data: currentUser } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: () => base44.auth.me(),
+  const { data: studyGroupsResponse } = useQuery({
+    queryKey: ['studyGroups'],
+    queryFn: () => get('/study-groups'),
   });
 
-  const { data: studyGroups = [] } = useQuery({
-    queryKey: ['studyGroups'],
-    queryFn: () => base44.entities.StudyGroup.filter({ status: 'active' }),
-  });
+  const studyGroups = studyGroupsResponse?.study_groups || [];
 
   const joinGroupMutation = useMutation({
     mutationFn: async (group) => {
-      const newMember = {
-        email: currentUser.email,
-        name: currentUser.full_name,
-        joined_at: new Date().toISOString(),
-        role: 'member',
-        contribution_score: 0
-      };
-      
-      return base44.entities.StudyGroup.update(group.id, {
-        members: [...(group.members || []), newMember]
-      });
+      return post(`/study-groups/${group.id}/join`, {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['studyGroups']);
     },
   });
 
-  const filteredGroups = studyGroups.filter(g => 
+  const filteredGroups = studyGroups.filter(g =>
     g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    g.focus_pillar.toLowerCase().includes(searchQuery.toLowerCase())
+    (g.focus_pillar && g.focus_pillar.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const myGroups = filteredGroups.filter(g => g.members?.some(m => m.email === currentUser?.email));
-  const availableGroups = filteredGroups.filter(g => !g.members?.some(m => m.email === currentUser?.email));
+  const myGroups = filteredGroups.filter(g => g.user_role);
+  const availableGroups = filteredGroups.filter(g => !g.user_role);
 
   return (
     <div className="min-h-screen bg-[#0F0F12] relative overflow-hidden">
